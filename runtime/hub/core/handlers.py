@@ -1244,7 +1244,10 @@ class GroupDetailAPIHandler(APIHandler):
         if not orm_group:
             raise web.HTTPError(404, f"Group '{group_name}' not found")
 
-        body = json.loads(self.request.body)
+        try:
+            body = json.loads(self.request.body)
+        except (json.JSONDecodeError, ValueError):
+            raise web.HTTPError(400, "Invalid JSON body") from None
 
         # Release protection: convert a protected group to admin-managed
         if body.get("release_protection"):
@@ -1297,7 +1300,10 @@ class GroupMembersAPIHandler(APIHandler):
         if is_readonly_group(orm_group):
             raise web.HTTPError(403, "Cannot modify members of a protected group")
 
-        body = json.loads(self.request.body)
+        try:
+            body = json.loads(self.request.body)
+        except (json.JSONDecodeError, ValueError):
+            raise web.HTTPError(400, "Invalid JSON body") from None
         usernames = body.get("users", [])
 
         from jupyterhub.orm import User as ORMUser
@@ -1337,7 +1343,10 @@ class GroupMembersAPIHandler(APIHandler):
         if is_readonly_group(orm_group):
             raise web.HTTPError(403, "Cannot modify members of a protected group")
 
-        body = json.loads(self.request.body)
+        try:
+            body = json.loads(self.request.body)
+        except (json.JSONDecodeError, ValueError):
+            raise web.HTTPError(400, "Invalid JSON body") from None
         usernames = body.get("users", [])
 
         from jupyterhub.orm import User as ORMUser

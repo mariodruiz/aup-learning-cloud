@@ -171,7 +171,9 @@ class RemoteLabKubeSpawner(KubeSpawner):
             self.log.debug(f"User '{username}' resources from groups: {available_resources}")
             return available_resources
 
-        # Fallback: native users with no group assignments
+        # Defensive fallback: auth_state_hook should have already assigned
+        # native users to the "native-users" group, but if that failed for
+        # any reason, fall back to the mapping entry directly.
         if not username.startswith("github:"):
             self.log.debug(f"Native user '{username}' has no groups, using default fallback")
             return self.team_resource_mapping.get("native-users", self.team_resource_mapping.get("official", []))
