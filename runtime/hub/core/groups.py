@@ -29,13 +29,11 @@ Provides functions for:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 import aiohttp
-
-if TYPE_CHECKING:
-    from jupyterhub.orm import Group as ORMGroup
-    from jupyterhub.user import User as JupyterHubUser
+from jupyterhub.orm import Group as ORMGroup
+from jupyterhub.user import User as JupyterHubUser
+from sqlalchemy.orm import Session
 
 log = logging.getLogger("jupyterhub.groups")
 
@@ -81,7 +79,7 @@ def sync_user_github_teams(
     user: JupyterHubUser,
     team_slugs: list[str],
     valid_mapping_keys: set[str],
-    db: object,
+    db: Session,
 ) -> None:
     """Sync a user's GitHub team memberships to JupyterHub groups.
 
@@ -96,22 +94,21 @@ def sync_user_github_teams(
         valid_mapping_keys: Set of group names that have resource mappings in config.
         db: JupyterHub database session (``self.db`` from a handler or hook).
     """
-    from jupyterhub.orm import Group as ORMGroup
-
     relevant_teams = set(team_slugs) & valid_mapping_keys
+    assert user.orm_user is not None  # populated by JupyterHub on init
 
     # Ensure groups exist and add user
     for team_slug in relevant_teams:
         orm_group = db.query(ORMGroup).filter_by(name=team_slug).first()
         if orm_group is None:
             orm_group = ORMGroup(name=team_slug)
-            orm_group.properties = {"source": GITHUB_TEAM_SOURCE}
+            orm_group.properties = {"source": GITHUB_TEAM_SOURCE}  # type: ignore[assignment]
             db.add(orm_group)
             db.commit()
             log.info("Created JupyterHub group '%s' (source: github-team)", team_slug)
         elif orm_group.properties.get("source") != GITHUB_TEAM_SOURCE:
             # GitHub team always takes priority over admin-created groups
-            orm_group.properties = {**orm_group.properties, "source": GITHUB_TEAM_SOURCE}
+            orm_group.properties = {**orm_group.properties, "source": GITHUB_TEAM_SOURCE}  # type: ignore[assignment]
             db.commit()
             log.info("Group '%s' promoted to github-team source", team_slug)
 
@@ -132,7 +129,7 @@ def sync_user_github_teams(
 def assign_user_to_group(
     user: JupyterHubUser,
     group_name: str,
-    db: object,
+    db: Session,
 ) -> None:
     """Assign a user to a JupyterHub group, creating it if needed.
 
@@ -143,17 +140,17 @@ def assign_user_to_group(
         group_name: Name of the group to assign to.
         db: JupyterHub database session.
     """
-    from jupyterhub.orm import Group as ORMGroup
+    assert user.orm_user is not None  # populated by JupyterHub on init
 
     orm_group = db.query(ORMGroup).filter_by(name=group_name).first()
     if orm_group is None:
         orm_group = ORMGroup(name=group_name)
-        orm_group.properties = {"source": SYSTEM_SOURCE}
+        orm_group.properties = {"source": SYSTEM_SOURCE}  # type: ignore[assignment]
         db.add(orm_group)
         db.commit()
         log.info("Created JupyterHub group '%s' (source: system)", group_name)
     elif not orm_group.properties.get("source"):
-        orm_group.properties = {**orm_group.properties, "source": SYSTEM_SOURCE}
+        orm_group.properties = {**orm_group.properties, "source": SYSTEM_SOURCE}  # type: ignore[assignment]
         db.commit()
 
     if orm_group not in user.orm_user.groups:
@@ -179,6 +176,7 @@ def get_resources_for_user(
     Returns:
         Deduplicated list of resource names the user can access.
     """
+    assert user.orm_user is not None  # populated by JupyterHub on init
     user_group_names = {g.name for g in user.orm_user.groups}
     available_resources: list[str] = []
 
@@ -207,7 +205,7 @@ def is_readonly_group(group: ORMGroup) -> bool:
     Returns:
         True if the group's source is "system".
     """
-    return group.properties.get("source") == SYSTEM_SOURCE
+    return group.properties.get("source") == SYSTEM_SOURCE  # type: ignore[union-attr]
 
 
 def is_undeletable_group(group: ORMGroup) -> bool:
@@ -221,4 +219,4 @@ def is_undeletable_group(group: ORMGroup) -> bool:
     Returns:
         True if the group's source is "github-team" or "system".
     """
-    return group.properties.get("source") in (GITHUB_TEAM_SOURCE, SYSTEM_SOURCE)
+    return group.properties.get("source") in (GITHUB_TEAM_SOURCE, SYSTEM_SOURCE)  # type: ignore[union-attr]
