@@ -412,9 +412,10 @@ export function GroupList() {
           </a>{' '}
           organization teams. Synced members are auto-managed by GitHub, but you can manually add
           users (e.g. native users) to grant them the same resources.
-          Sync occurs when a user starts a server &mdash; changes may not appear until the next spawn.
+          Team data is captured at login, and group membership is updated when the user starts a server
+          &mdash; changes on GitHub may not appear until the user re-logs in and spawns.
           If a manually created group shares its name with a GitHub team, it will be automatically converted
-          to a GitHub-managed group when a team member logs in. Use &quot;Release Protection&quot; in group
+          to a GitHub-managed group when a team member logs in and spawns. Use &quot;Release Protection&quot; in group
           properties to convert a protected group back to manual management.
         </Alert>
       )}

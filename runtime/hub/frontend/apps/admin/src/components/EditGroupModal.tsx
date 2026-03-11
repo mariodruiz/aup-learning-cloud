@@ -199,7 +199,7 @@ export function EditGroupModal({ show, group, onHide, onUpdate, onDelete }: Prop
             <i className="bi bi-github"></i>
             <span>
               Members are auto-synced from GitHub Teams. You can add users manually,
-              but synced members may be re-added or removed on the next login.
+              but synced members may be re-added or removed when the user next logs in and starts a server.
             </span>
           </Alert>
         )}
