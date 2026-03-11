@@ -103,6 +103,42 @@ interface UserOption {
   label: string;
 }
 
+const COLLAPSED_LIMIT = 3;
+
+function ResourceBadges({ resources }: { resources: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  if (resources.length === 0) return <span className="text-muted small">--</span>;
+  const visible = expanded ? resources : resources.slice(0, COLLAPSED_LIMIT);
+  const hidden = resources.length - COLLAPSED_LIMIT;
+  return (
+    <div className="d-flex flex-wrap gap-1 align-items-center">
+      {visible.map(r => <Badge key={r} bg="info" className="fw-normal">{r}</Badge>)}
+      {!expanded && hidden > 0 && (
+        <Badge
+          bg="secondary"
+          className="fw-normal"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setExpanded(true)}
+          title="Show all"
+        >
+          +{hidden}
+        </Badge>
+      )}
+      {expanded && resources.length > COLLAPSED_LIMIT && (
+        <Badge
+          bg="secondary"
+          className="fw-normal"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setExpanded(false)}
+          title="Collapse"
+        >
+          ▲
+        </Badge>
+      )}
+    </div>
+  );
+}
+
 // Memoized GroupRow component with inline member management
 interface GroupRowProps {
   group: Group;
@@ -211,15 +247,7 @@ const GroupRow = memo(function GroupRow({ group, onEdit, onMembersChange, loadUs
         />
       </td>
       <td style={{ verticalAlign: 'middle' }}>
-        {group.resources && group.resources.length > 0 ? (
-          <div className="d-flex flex-wrap gap-1">
-            {group.resources.map(r => (
-              <Badge key={r} bg="info" className="fw-normal">{r}</Badge>
-            ))}
-          </div>
-        ) : (
-          <span className="text-muted small">--</span>
-        )}
+        <ResourceBadges resources={group.resources ?? []} />
       </td>
       <td style={{ width: '120px', verticalAlign: 'middle' }}>
         <Button
