@@ -183,8 +183,6 @@ def get_resources_for_user(
     for group_name in user_group_names:
         if group_name not in team_resource_mapping:
             continue
-        if group_name == "official":
-            return list(team_resource_mapping["official"])
         available_resources.extend(team_resource_mapping[group_name])
 
     # Deduplicate while preserving order
