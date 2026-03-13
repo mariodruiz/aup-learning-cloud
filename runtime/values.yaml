@@ -289,6 +289,9 @@ custom:
         - Course-CV
         - Course-DL
         - Course-LLM
+        - Course-PhySim
+        - cpu
+        - gpu
 
   # ============================================================================
   # Quota Management
