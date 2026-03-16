@@ -419,18 +419,21 @@ function remove_k3s_docker_containers() {
         return 0
     fi
 
+    # Filter by the Kubernetes-specific label that kubelet stamps on every
+    # container it creates via dockershim/cri-dockerd.  This is more precise
+    # than matching the "k8s_" name prefix, which could accidentally catch
+    # user containers with similar names.
     local k8s_containers
-    k8s_containers=$(docker ps -a -q --filter "name=k8s_" 2>/dev/null || true)
+    k8s_containers=$(docker ps -a -q --filter "label=io.kubernetes.pod.name" 2>/dev/null || true)
     if [[ -z "$k8s_containers" ]]; then
         return 0
     fi
 
     echo ""
-    echo "The following Docker containers with the 'k8s_' prefix were found."
-    echo "These are typically Pod containers left behind by k3s (Docker runtime mode),"
-    echo "but may also include containers from other Kubernetes environments (e.g. minikube)."
+    echo "The following Docker containers managed by Kubernetes were found."
+    echo "These are Pod containers left behind by k3s (Docker runtime mode)."
     echo ""
-    docker ps -a --filter "name=k8s_" --format "  {{.ID}}  {{.Names}}"
+    docker ps -a --filter "label=io.kubernetes.pod.name" --format "  {{.ID}}  {{.Names}}"
     echo ""
 
     local confirm
@@ -440,7 +443,7 @@ function remove_k3s_docker_containers() {
     elif [[ ! -t 0 ]]; then
         echo "Non-interactive environment detected. Skipping Docker container cleanup."
         echo "To remove them manually, run:"
-        echo "  docker rm -f \$(docker ps -a -q --filter 'name=k8s_')"
+        echo "  docker rm -f \$(docker ps -a -q --filter 'label=io.kubernetes.pod.name')"
         return 0
     else
         read -r -p "Remove all of the above containers? [y/N] " confirm
@@ -448,7 +451,7 @@ function remove_k3s_docker_containers() {
 
     if [[ "${confirm,,}" != "y" ]]; then
         echo "Skipping Docker container cleanup. You can remove them manually with:"
-        echo "  docker rm -f \$(docker ps -a -q --filter 'name=k8s_')"
+        echo "  docker rm -f \$(docker ps -a -q --filter 'label=io.kubernetes.pod.name')"
         return 0
     fi
 
