@@ -409,6 +409,60 @@ function install_k3s_single_node() {
     sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
 }
 
+function remove_k3s_docker_containers() {
+    # k3s-uninstall.sh only cleans up its embedded containerd; when k3s is
+    # configured to use Docker as the container runtime (--docker flag), Pod
+    # containers appear in `docker ps` with a "k8s_" prefix and are NOT
+    # removed by the k3s uninstall script.  This is a known upstream issue:
+    # https://github.com/k3s-io/k3s/issues/1469
+    if ! command -v docker &>/dev/null; then
+        return 0
+    fi
+
+    # Filter by the Kubernetes-specific label that kubelet stamps on every
+    # container it creates via dockershim/cri-dockerd.  This is more precise
+    # than matching the "k8s_" name prefix, which could accidentally catch
+    # user containers with similar names.
+    local k8s_containers
+    k8s_containers=$(docker ps -a -q --filter "label=io.kubernetes.pod.name" 2>/dev/null || true)
+    if [[ -z "$k8s_containers" ]]; then
+        return 0
+    fi
+
+    echo ""
+    echo "The following Docker containers managed by Kubernetes were found."
+    echo "These are Pod containers left behind by k3s (Docker runtime mode)."
+    echo ""
+    docker ps -a --filter "label=io.kubernetes.pod.name" --format "  {{.ID}}  {{.Names}}"
+    echo ""
+
+    local confirm
+    if [[ "${AUPLC_YES}" == "1" ]]; then
+        echo "Non-interactive mode (--yes): removing containers automatically."
+        confirm="y"
+    elif [[ ! -t 0 ]]; then
+        echo "Non-interactive environment detected. Skipping Docker container cleanup."
+        echo "To remove them manually, run:"
+        echo "  docker rm -f \$(docker ps -a -q --filter 'label=io.kubernetes.pod.name')"
+        return 0
+    else
+        read -r -p "Remove all of the above containers? [y/N] " confirm
+    fi
+
+    if [[ "${confirm,,}" != "y" ]]; then
+        echo "Skipping Docker container cleanup. You can remove them manually with:"
+        echo "  docker rm -f \$(docker ps -a -q --filter 'label=io.kubernetes.pod.name')"
+        return 0
+    fi
+
+    echo "Stopping and removing containers..."
+    # shellcheck disable=SC2086
+    docker stop $k8s_containers 2>/dev/null || true
+    # shellcheck disable=SC2086
+    docker rm   $k8s_containers 2>/dev/null || true
+    echo "Docker containers removed."
+}
+
 function remove_k3s() {
     local uninstall_script="/usr/local/bin/k3s-uninstall.sh"
 
@@ -419,6 +473,8 @@ function remove_k3s() {
     else
         echo "K3s uninstall script not found at $uninstall_script. Is K3s installed?"
     fi
+
+    remove_k3s_docker_containers
 
     if [[ -d "$HOME/.kube" ]]; then
         echo "Removing kubeconfig files from $HOME/.kube..."
@@ -1140,6 +1196,9 @@ Options (can also be set via environment variables):
                     0 = containerd mode: images exported for offline use.
                     Env: K3S_USE_DOCKER
 
+  -y, --yes         Assume yes to all prompts (for scripted/CI use).
+                    Env: AUPLC_YES=1
+
   --mirror=PREFIX   Registry mirror (e.g. mirror.example.com)
                     Env: MIRROR_PREFIX
   --mirror-pip=URL  PyPI mirror URL.  Env: MIRROR_PIP
@@ -1175,6 +1234,8 @@ EOF
 # ============================================================
 
 # Parse global options (--key=value flags override environment variables)
+AUPLC_YES="${AUPLC_YES:-0}"
+
 args=()
 for arg in "$@"; do
     case "$arg" in
@@ -1183,6 +1244,7 @@ for arg in "$@"; do
         --mirror=*)       MIRROR_PREFIX="${arg#--mirror=}" ;;
         --mirror-pip=*)   MIRROR_PIP="${arg#--mirror-pip=}" ;;
         --mirror-npm=*)   MIRROR_NPM="${arg#--mirror-npm=}" ;;
+        -y|--yes)         AUPLC_YES=1 ;;
         *)                args+=("$arg") ;;
     esac
 done
