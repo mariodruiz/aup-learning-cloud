@@ -55,17 +55,18 @@ custom:
     enabled: false
 
   # ============================================================================
-  # Allowed Origins for Notebook Server WebSocket Connections
+  # Allowed Origins
   # ============================================================================
-  # When accessing through a reverse proxy or non-standard domain, WebSocket
-  # connections may be blocked by the browser's same-origin policy.
-  # Configure allowed origins here instead of using hub.extraConfig.
+  # hub.allowedOrigins      — sets Access-Control-Allow-Origin on Hub HTTP responses
+  # notebook.allowedOrigins — injected into each notebook server's startup args
+  #                           (--ServerApp.allow_origin_pat); handles kernel WebSocket
   #
-  # Examples:
-  #   allowedOrigins: ["*"]                          # allow all origins
-  #   allowedOrigins: ["https://mylab.example.com"]  # specific domain
-  #   allowedOrigins: ["https://mylab.example.com", "https://alt.example.org"]
-  allowedOrigins: []
+  # Use ["*"] to allow all, or list specific domains.
+  # Example: ["https://mylab.example.com", "https://alt.example.org"]
+  hub:
+    allowedOrigins: []
+  notebook:
+    allowedOrigins: []
 
   # ============================================================================
   # Git Repository Cloning

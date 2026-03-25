@@ -3441,21 +3441,36 @@ properties:
               Priority: user PAT > OAuth token > defaultAccessToken.
               Helm auto-creates a K8s Secret (jupyterhub-git-default-token) from this value.
 
-      allowedOrigins:
-        type: array
-        items:
-          type: string
+      hub:
+        type: object
+        additionalProperties: false
         description: |
-          Allowed origins for notebook server WebSocket connections.
-          Use when accessing through a reverse proxy or non-standard domain.
-          Use ["*"] to allow all origins, or list specific domains.
-
-          Example:
-          ```yaml
+          Hub-level network settings.
+        properties:
           allowedOrigins:
-            - "https://mylab.example.com"
-            - "https://alt.example.org"
-          ```
+            type: array
+            items:
+              type: string
+            description: |
+              Sets Access-Control-Allow-Origin on Hub HTTP responses.
+              Use when the Hub API is accessed cross-origin.
+              Use ["*"] to allow all, or list specific domains.
+
+      notebook:
+        type: object
+        additionalProperties: false
+        description: |
+          Notebook server network settings.
+        properties:
+          allowedOrigins:
+            type: array
+            items:
+              type: string
+            description: |
+              Injected into each notebook server's startup args via
+              --ServerApp.allow_origin_pat. Needed when kernel WebSocket
+              connections go through a reverse proxy or non-standard domain.
+              Use ["*"] to allow all, or list specific domains.
 
       apiService:
         type: object

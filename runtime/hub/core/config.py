@@ -139,6 +139,22 @@ class GitCloneSettings(BaseModel):
     model_config = {"extra": "allow"}
 
 
+class HubNetworkSettings(BaseModel):
+    """Network settings applied to the Hub process."""
+
+    allowedOrigins: list[str] = Field(default_factory=list)
+
+    model_config = {"extra": "allow"}
+
+
+class NotebookNetworkSettings(BaseModel):
+    """Network settings applied to each notebook server (singleuser pod)."""
+
+    allowedOrigins: list[str] = Field(default_factory=list)
+
+    model_config = {"extra": "allow"}
+
+
 class ParsedConfig(BaseModel):
     """Parsed configuration from values.yaml custom section."""
 
@@ -147,7 +163,8 @@ class ParsedConfig(BaseModel):
     teams: TeamsConfig = Field(default_factory=TeamsConfig)
     quota: QuotaSettings = Field(default_factory=QuotaSettings)
     gitClone: GitCloneSettings = Field(default_factory=GitCloneSettings)
-    allowedOrigins: list[str] = Field(default_factory=list)
+    hub: HubNetworkSettings = Field(default_factory=HubNetworkSettings)
+    notebook: NotebookNetworkSettings = Field(default_factory=NotebookNetworkSettings)
 
     model_config = {"extra": "allow"}
 
@@ -159,7 +176,8 @@ class ParsedConfig(BaseModel):
         teams: dict | None = None,
         quota: dict | None = None,
         git_clone: dict | None = None,
-        allowed_origins: list | None = None,
+        hub: dict | None = None,
+        notebook: dict | None = None,
     ) -> ParsedConfig:
         """Create configuration from individual dicts."""
         raw_config: dict[str, Any] = {}
@@ -174,8 +192,10 @@ class ParsedConfig(BaseModel):
             raw_config["quota"] = quota
         if git_clone:
             raw_config["gitClone"] = git_clone
-        if allowed_origins is not None:
-            raw_config["allowedOrigins"] = allowed_origins
+        if hub:
+            raw_config["hub"] = hub
+        if notebook:
+            raw_config["notebook"] = notebook
 
         return cls.model_validate(raw_config)
 
@@ -256,7 +276,8 @@ class HubConfig:
             teams=raw_config.get("teams"),
             quota=raw_config.get("quota"),
             git_clone=raw_config.get("gitClone"),
-            allowed_origins=raw_config.get("allowedOrigins"),
+            hub=raw_config.get("hub"),
+            notebook=raw_config.get("notebook"),
         )
 
         # Quota enabled: from config or auto-detect based on auth_mode
@@ -328,9 +349,14 @@ class HubConfig:
         return self._config.gitClone
 
     @property
-    def allowed_origins(self) -> list[str]:
-        """Get allowed origins for notebook server WebSocket connections."""
-        return self._config.allowedOrigins
+    def hub_network(self) -> HubNetworkSettings:
+        """Get Hub-level network settings."""
+        return self._config.hub
+
+    @property
+    def notebook_network(self) -> NotebookNetworkSettings:
+        """Get notebook server network settings."""
+        return self._config.notebook
 
     # =========================================================================
     # Helper Methods

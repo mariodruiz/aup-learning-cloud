@@ -101,7 +101,7 @@ class RemoteLabKubeSpawner(KubeSpawner):
     DEFAULT_ACCESS_TOKEN_SECRET: str = "jupyterhub-git-default-token"
 
     # Allowed origins for notebook server WebSocket connections
-    allowed_origins: list[str] = []
+    notebook_allowed_origins: list[str] = []
 
     @classmethod
     def configure_from_config(cls, config: HubConfig) -> None:
@@ -145,8 +145,8 @@ class RemoteLabKubeSpawner(KubeSpawner):
         cls.GITHUB_APP_NAME = git_config.githubAppName
         cls.DEFAULT_ACCESS_TOKEN = bool(git_config.defaultAccessToken)
 
-        # Extract allowed origins
-        cls.allowed_origins = list(config.allowed_origins)
+        # Extract singleuser allowed origins
+        cls.notebook_allowed_origins = list(config.notebook_network.allowedOrigins)
 
     async def get_user_resources(self) -> list[str]:
         """Get available resources for the user based on their JupyterHub group memberships.
@@ -756,13 +756,13 @@ class RemoteLabKubeSpawner(KubeSpawner):
         )
 
         # Inject allowed origins into notebook server startup args
-        if self.allowed_origins:
-            origin_pat = "|".join(re.escape(o) if o != "*" else ".*" for o in self.allowed_origins)
+        if self.notebook_allowed_origins:
+            origin_pat = "|".join(re.escape(o) if o != "*" else ".*" for o in self.notebook_allowed_origins)
             extra_args = list(self.args or [])
             extra_args += [
                 f"--ServerApp.allow_origin_pat={origin_pat}",
             ]
-            if "*" in self.allowed_origins:
+            if "*" in self.notebook_allowed_origins:
                 extra_args.append("--ServerApp.allow_origin=*")
             self.args = extra_args
 
