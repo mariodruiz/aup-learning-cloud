@@ -147,6 +147,7 @@ class ParsedConfig(BaseModel):
     teams: TeamsConfig = Field(default_factory=TeamsConfig)
     quota: QuotaSettings = Field(default_factory=QuotaSettings)
     gitClone: GitCloneSettings = Field(default_factory=GitCloneSettings)
+    allowedOrigins: list[str] = Field(default_factory=list)
 
     model_config = {"extra": "allow"}
 
@@ -158,6 +159,7 @@ class ParsedConfig(BaseModel):
         teams: dict | None = None,
         quota: dict | None = None,
         git_clone: dict | None = None,
+        allowed_origins: list | None = None,
     ) -> ParsedConfig:
         """Create configuration from individual dicts."""
         raw_config: dict[str, Any] = {}
@@ -172,6 +174,8 @@ class ParsedConfig(BaseModel):
             raw_config["quota"] = quota
         if git_clone:
             raw_config["gitClone"] = git_clone
+        if allowed_origins is not None:
+            raw_config["allowedOrigins"] = allowed_origins
 
         return cls.model_validate(raw_config)
 
@@ -252,6 +256,7 @@ class HubConfig:
             teams=raw_config.get("teams"),
             quota=raw_config.get("quota"),
             git_clone=raw_config.get("gitClone"),
+            allowed_origins=raw_config.get("allowedOrigins"),
         )
 
         # Quota enabled: from config or auto-detect based on auth_mode
@@ -321,6 +326,11 @@ class HubConfig:
     def git_clone(self) -> GitCloneSettings:
         """Get git clone configuration."""
         return self._config.gitClone
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """Get allowed origins for notebook server WebSocket connections."""
+        return self._config.allowedOrigins
 
     # =========================================================================
     # Helper Methods
