@@ -910,20 +910,27 @@ class RemoteLabKubeSpawner(KubeSpawner):
         # Clean up any leftover git token secrets
         await self._cleanup_git_token_secrets()
 
-        if hasattr(self, "usage_session_id") and self.usage_session_id:
-            session_id = self.usage_session_id
-            username = self.user.name
+        username = self.user.name
+        try:
+            from core.quota import get_quota_manager
+
+            quota_manager = get_quota_manager()
+            quota_rates = self.quota_rates if self.quota_enabled else None
+
+            session_id = getattr(self, "usage_session_id", None)
             self.usage_session_id = None
 
-            try:
-                from core.quota import get_quota_manager
-
-                quota_manager = get_quota_manager()
-                quota_rates = self.quota_rates if self.quota_enabled else None
+            if session_id:
                 duration, quota_used = quota_manager.end_usage_session(session_id, quota_rates)
                 print(f"[USAGE] Session ended for {username}. Duration: {duration} min, Quota used: {quota_used}")
-            except Exception as e:
-                print(f"[USAGE] Error ending session for {username}: {e}")
+            else:
+                # Hub may have restarted and lost in-memory session id — find and close any active session for this user
+                active = quota_manager.get_active_session(username)
+                if active:
+                    duration, quota_used = quota_manager.end_usage_session(active["session_id"], quota_rates)
+                    print(f"[USAGE] Recovered session for {username}. Duration: {duration} min, Quota used: {quota_used}")
+        except Exception as e:
+            print(f"[USAGE] Error ending session for {username}: {e}")
 
         if hasattr(self, "check_timer") and self.check_timer:
             with contextlib.suppress(Exception):

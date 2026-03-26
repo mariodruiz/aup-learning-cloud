@@ -1,32 +1,44 @@
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Spinner, Alert } from 'react-bootstrap';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell,
 } from 'recharts';
 import { NavBar } from '../components/NavBar';
+import { UserDetailModal } from '../components/UserDetailModal';
 import {
   getDashboardOverview,
   getUsageTimeSeries,
   getDistribution,
+  createActiveSessionsSSE,
 } from '@auplc/shared';
 import type {
   DashboardOverview,
   DailyUsage,
   ResourceDistribution,
   TopUser,
+  ActiveSession,
 } from '@auplc/shared';
 
 const PIE_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
 
-const TIME_RANGES = [
-  { label: '7 days', value: 7 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
+type Granularity = 'day' | 'week';
+
+const GRANULARITY_OPTIONS: { label: string; value: Granularity }[] = [
+  { label: 'Daily',  value: 'day'  },
+  { label: 'Weekly', value: 'week' },
 ];
+
+function toDateStr(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function daysBetween(start: string, end: string): number {
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  return Math.max(1, Math.round(ms / 86400000));
+}
 
 function formatMinutes(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
@@ -44,34 +56,50 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon, color }: StatCardProps) {
   return (
-    <div className="tw:rounded-xl tw:p-5 tw:shadow-sm tw:border tw:border-gray-100 tw:bg-white tw:flex tw:items-center tw:gap-4">
+    <div className="bg-body border tw:rounded-xl tw:p-5 tw:shadow-sm tw:flex tw:items-center tw:gap-4">
       <div className={`tw:rounded-lg tw:p-3 ${color}`}>
         <i className={`bi ${icon} tw:text-white tw:text-xl`} />
       </div>
       <div>
-        <p className="tw:text-sm tw:text-gray-500 tw:mb-0">{title}</p>
-        <p className="tw:text-2xl tw:font-bold tw:text-gray-800 tw:mb-0">{value}</p>
+        <p className="text-body-secondary tw:text-sm tw:mb-0">{title}</p>
+        <p className="text-body tw:text-2xl tw:font-bold tw:mb-0">{value}</p>
       </div>
     </div>
   );
 }
 
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
+
 export function Dashboard() {
-  const [days, setDays] = useState(30);
+  const today = toDateStr(new Date());
+  const [startDate, setStartDate] = useState(() => toDateStr(new Date(Date.now() - 30 * 86400000)));
+  const [endDate, setEndDate] = useState(today);
+  const [granularity, setGranularity] = useState<Granularity>('day');
+  const days = daysBetween(startDate, endDate);
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [dailyUsage, setDailyUsage] = useState<DailyUsage[]>([]);
   const [byResource, setByResource] = useState<ResourceDistribution[]>([]);
   const [topUsers, setTopUsers] = useState<TopUser[]>([]);
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
+  // SSE: live active sessions
+  useEffect(() => {
+    const es = createActiveSessionsSSE(setActiveSessions);
+    return () => es.close();
+  }, []);
+
+  // Load overview + distribution + initial chart when date range changes
+  const loadAll = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const [ov, usage, dist] = await Promise.all([
         getDashboardOverview(),
-        getUsageTimeSeries(days),
+        getUsageTimeSeries(days, granularity),
         getDistribution(days),
       ]);
       setOverview(ov);
@@ -83,32 +111,45 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load only time series when granularity changes (skip on initial mount, loadAll handles it)
+  const isFirstRender = useRef(true);
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    setChartLoading(true);
+    getUsageTimeSeries(days, granularity)
+      .then(u => setDailyUsage(u.daily_usage))
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load chart data'))
+      .finally(() => setChartLoading(false));
+  }, [granularity]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   return (
     <div>
       <NavBar />
 
-      <div className="tw:flex tw:items-center tw:justify-between tw:mb-6">
-        <h4 className="tw:text-gray-800 tw:font-semibold tw:mb-0">Usage Dashboard</h4>
-        <div className="tw:flex tw:gap-1 tw:bg-gray-100 tw:rounded-lg tw:p-1">
-          {TIME_RANGES.map(r => (
-            <button
-              key={r.value}
-              onClick={() => setDays(r.value)}
-              className={`tw:px-3 tw:py-1 tw:rounded-md tw:text-sm tw:font-medium tw:transition-all ${
-                days === r.value
-                  ? 'tw:bg-white tw:shadow-sm tw:text-indigo-600'
-                  : 'tw:text-gray-500 tw:hover:text-gray-700'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
+      {/* Header row */}
+      <div className="tw:flex tw:items-center tw:justify-between tw:mb-6 tw:flex-wrap tw:gap-2">
+        <h4 className="text-body tw:font-semibold tw:mb-0">Usage Dashboard</h4>
+        <div className="tw:flex tw:items-center tw:gap-1">
+          <input
+            type="date"
+            className="form-control form-control-sm"
+            value={startDate}
+            max={endDate}
+            onChange={e => setStartDate(e.target.value)}
+          />
+          <span className="text-body-secondary tw:text-sm">—</span>
+          <input
+            type="date"
+            className="form-control form-control-sm"
+            value={endDate}
+            min={startDate}
+            max={today}
+            onChange={e => setEndDate(e.target.value)}
+          />
         </div>
       </div>
 
@@ -148,90 +189,181 @@ export function Dashboard() {
             />
           </div>
 
-          {/* Charts row */}
-          <div className="tw:grid tw:grid-cols-1 tw:gap-4 tw:mb-6 lg:tw:grid-cols-3">
-            {/* Usage trend */}
-            <div className="tw:bg-white tw:rounded-xl tw:shadow-sm tw:border tw:border-gray-100 tw:p-5 lg:tw:col-span-2">
-              <h6 className="tw:text-gray-600 tw:font-semibold tw:mb-4">Daily Usage (minutes)</h6>
-              {dailyUsage.length === 0 ? (
-                <p className="tw:text-gray-400 tw:text-sm tw:text-center tw:py-10">No data for this period</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={dailyUsage} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={d => d.slice(5)} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v) => [`${v} min`, 'Usage']} />
-                    <Legend />
-                    <Line type="monotone" dataKey="minutes" stroke="#6366f1" strokeWidth={2} dot={false} name="Minutes" />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
+          {/* Active Now */}
+          <div className="bg-body border tw:rounded-xl tw:shadow-sm tw:p-5 tw:mb-4">
+            <div className="tw:flex tw:items-center tw:gap-2 tw:mb-3">
+              <h6 className="text-body-secondary tw:font-semibold tw:mb-0">Active Now</h6>
+              <span className="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-emerald-600 tw:font-medium">
+                <span className="tw:inline-block tw:w-2 tw:h-2 tw:rounded-full tw:bg-emerald-500 tw:animate-pulse" />
+                Live
+              </span>
+              <span className="badge bg-secondary tw:ml-auto">{activeSessions.length}</span>
             </div>
-
-            {/* Resource distribution */}
-            <div className="tw:bg-white tw:rounded-xl tw:shadow-sm tw:border tw:border-gray-100 tw:p-5">
-              <h6 className="tw:text-gray-600 tw:font-semibold tw:mb-4">Resource Distribution</h6>
-              {byResource.length === 0 ? (
-                <p className="tw:text-gray-400 tw:text-sm tw:text-center tw:py-10">No data for this period</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={byResource}
-                      dataKey="minutes"
-                      nameKey="resource_type"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ resource_type, percent }) =>
-                        `${resource_type} ${(percent * 100).toFixed(0)}%`
-                      }
-                      labelLine={false}
-                    >
-                      {byResource.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v) => [`${v} min`]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
-          {/* Top users table */}
-          <div className="tw:bg-white tw:rounded-xl tw:shadow-sm tw:border tw:border-gray-100 tw:p-5">
-            <h6 className="tw:text-gray-600 tw:font-semibold tw:mb-4">Top Users</h6>
-            {topUsers.length === 0 ? (
-              <p className="tw:text-gray-400 tw:text-sm tw:text-center tw:py-6">No data for this period</p>
+            {activeSessions.length === 0 ? (
+              <p className="text-body-secondary tw:text-sm tw:text-center tw:py-4">No active sessions</p>
             ) : (
               <table className="table table-sm table-hover mb-0">
-                <thead className="table-light">
+                <thead>
                   <tr>
-                    <th>#</th>
-                    <th>Username</th>
-                    <th>Total Usage</th>
-                    <th>Sessions</th>
-                    <th>Avg per Session</th>
+                    <th>User</th>
+                    <th>Course</th>
+                    <th>Started</th>
+                    <th>Elapsed</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {topUsers.map((u, i) => (
-                    <tr key={u.username}>
-                      <td className="tw:text-gray-400">{i + 1}</td>
-                      <td><code>{u.username}</code></td>
-                      <td>{formatMinutes(u.total_minutes)}</td>
-                      <td>{u.sessions}</td>
-                      <td>{formatMinutes(Math.round(u.total_minutes / u.sessions))}</td>
+                  {activeSessions.map((s, i) => (
+                    <tr key={i} style={{ cursor: 'pointer' }} onClick={() => setSelectedUser(s.username)}>
+                      <td>
+                        <span className="tw:text-indigo-600 tw:font-medium">
+                          <i className="bi bi-person me-1" />{s.username}
+                        </span>
+                      </td>
+                      <td><code>{s.resource_type}</code></td>
+                      <td className="text-body-secondary tw:text-xs">{s.start_time.slice(0, 16).replace('T', ' ')}</td>
+                      <td>{formatMinutes(s.elapsed_minutes)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
           </div>
+
+          {/* Usage trend — full width */}
+          <div className="bg-body border tw:rounded-xl tw:shadow-sm tw:p-5 tw:mb-4">
+            <div className="tw:flex tw:items-center tw:justify-between tw:mb-4">
+              <h6 className="text-body-secondary tw:font-semibold tw:mb-0">Usage (minutes)</h6>
+              <div className="bg-body-tertiary tw:flex tw:gap-1 tw:rounded-lg tw:p-1">
+                {GRANULARITY_OPTIONS.map((g) => (
+                  <button
+                    key={g.value}
+                    onClick={() => setGranularity(g.value)}
+                    className={`tw:px-3 tw:py-1 tw:rounded-md tw:text-sm tw:font-medium tw:transition-all tw:border-0 tw:cursor-pointer ${
+                      granularity === g.value
+                        ? 'bg-body tw:shadow-sm tw:text-indigo-600'
+                        : 'tw:bg-transparent text-body-secondary'
+                    }`}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {chartLoading ? (
+              <div className="tw:flex tw:justify-center tw:py-10"><Spinner animation="border" size="sm" variant="primary" /></div>
+            ) : dailyUsage.length === 0 ? (
+              <p className="text-body-secondary tw:text-sm tw:text-center tw:py-10">No data for this period</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={dailyUsage} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--bs-border-color)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--bs-body-color)' }} tickFormatter={d => d.slice(5)} />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--bs-body-color)' }} />
+                  <Tooltip
+                    formatter={(v) => [`${v} min`, 'Usage']}
+                    contentStyle={{ backgroundColor: 'var(--bs-body-bg)', border: '1px solid var(--bs-border-color)', color: 'var(--bs-body-color)' }}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="minutes" stroke="#6366f1" strokeWidth={2} dot={false} name="Minutes" />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Course stats + Top users — two columns */}
+          <div className="tw:grid tw:grid-cols-1 tw:gap-4 lg:tw:grid-cols-2">
+            {/* Course ranking */}
+            <div className="bg-body border tw:rounded-xl tw:shadow-sm tw:p-5">
+              <h6 className="text-body-secondary tw:font-semibold tw:mb-4">
+                <i className="bi bi-journal-code me-2" />Course Usage
+              </h6>
+              {byResource.length === 0 ? (
+                <p className="text-body-secondary tw:text-sm tw:text-center tw:py-6">No data for this period</p>
+              ) : (() => {
+                const maxMin = Math.max(...byResource.map(r => r.minutes));
+                return (
+                  <div className="tw:flex tw:flex-col tw:gap-3">
+                    {byResource.map((r, i) => (
+                      <div key={r.resource_type}>
+                        <div className="tw:flex tw:justify-between tw:items-baseline tw:mb-1">
+                          <span className="tw:flex tw:items-center tw:gap-2 tw:text-sm text-body">
+                            <span
+                              className="tw:inline-block tw:w-2 tw:h-2 tw:rounded-full tw:shrink-0"
+                              style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                            />
+                            {r.resource_type}
+                          </span>
+                          <span className="text-body-secondary tw:text-xs tw:shrink-0 tw:ml-2">
+                            {formatMinutes(r.minutes)} · {r.sessions} sessions · avg {formatMinutes(Math.round(r.avg_minutes))}
+                          </span>
+                        </div>
+                        <div className="tw:w-full tw:rounded-full tw:h-1.5 bg-body-tertiary">
+                          <div
+                            className="tw:h-1.5 tw:rounded-full tw:transition-all"
+                            style={{
+                              width: `${(r.minutes / maxMin) * 100}%`,
+                              backgroundColor: PIE_COLORS[i % PIE_COLORS.length],
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Top users */}
+            <div className="bg-body border tw:rounded-xl tw:shadow-sm tw:p-5">
+              <h6 className="text-body-secondary tw:font-semibold tw:mb-4">
+                <i className="bi bi-trophy me-2" />Top Users
+              </h6>
+              {topUsers.length === 0 ? (
+                <p className="text-body-secondary tw:text-sm tw:text-center tw:py-6">No data for this period</p>
+              ) : (
+                <table className="table table-sm table-hover mb-0">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Username</th>
+                      <th>Total Usage</th>
+                      <th>Sessions</th>
+                      <th>Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topUsers.map((u, i) => (
+                      <tr
+                        key={u.username}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => setSelectedUser(u.username)}
+                      >
+                        <td className="text-body-secondary">{i + 1}</td>
+                        <td>
+                          <span className="tw:text-indigo-600 tw:font-medium tw:hover:underline">
+                            <i className="bi bi-person me-1" />{u.username}
+                          </span>
+                        </td>
+                        <td>{formatMinutes(u.total_minutes)}</td>
+                        <td>{u.sessions}</td>
+                        <td>{formatMinutes(Math.round(u.total_minutes / u.sessions))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
         </>
       )}
+
+      {/* Per-user detail modal */}
+      <UserDetailModal
+        username={selectedUser}
+        days={days}
+        granularity={granularity}
+        onClose={() => setSelectedUser(null)}
+      />
     </div>
   );
 }

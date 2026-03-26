@@ -19,6 +19,14 @@ export interface ResourceDistribution {
   minutes: number;
   sessions: number;
   users: number;
+  avg_minutes: number;
+}
+
+export interface ActiveSession {
+  username: string;
+  resource_type: string;
+  start_time: string;
+  elapsed_minutes: number;
 }
 
 export interface TopUser {
@@ -34,4 +42,21 @@ export interface StatsUsageResponse {
 export interface StatsDistributionResponse {
   by_resource: ResourceDistribution[];
   top_users: TopUser[];
+}
+
+export interface UserSession {
+  resource_type: string;
+  start_time: string;
+  end_time: string | null;
+  duration_minutes: number | null;
+  status: string;
+}
+
+export interface UserDetail {
+  username: string;
+  total_minutes: number;
+  total_sessions: number;
+  usage: DailyUsage[];
+  by_resource: ResourceDistribution[];
+  recent_sessions: UserSession[];
 }

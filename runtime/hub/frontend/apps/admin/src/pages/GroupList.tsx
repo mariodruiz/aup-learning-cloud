@@ -18,7 +18,6 @@
 // SOFTWARE.
 
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { NavBar } from '../components/NavBar';
 import { Table, Button, Form, InputGroup, Alert, Spinner, Modal, Badge } from 'react-bootstrap';
 import AsyncSelect from 'react-select/async';
@@ -265,7 +264,6 @@ const GroupRow = memo(function GroupRow({ group, onEdit, onMembersChange, loadUs
 });
 
 export function GroupList() {
-  const navigate = useNavigate();
   const [groups, setGroups] = useState<Group[]>([]);
   const [githubOrg, setGithubOrg] = useState('');
   const [loading, setLoading] = useState(true);
@@ -461,13 +459,7 @@ export function GroupList() {
           )}
         </div>
         <div className="d-flex gap-2">
-          <Button
-            variant="outline-secondary"
-            onClick={() => navigate('/users')}
-          >
-            Back to Users
-          </Button>
-          <Button
+<Button
             variant="outline-secondary"
             as="a"
             href={`${window.jhdata?.base_url ?? '/hub/'}admin`}

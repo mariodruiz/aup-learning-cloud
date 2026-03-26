@@ -9,7 +9,7 @@ export function NavBar() {
   const location = useLocation();
 
   return (
-    <Nav variant="tabs" className="mb-4">
+    <Nav variant="tabs" className="tw:mb-4">
       <Nav.Item>
         <Nav.Link
           active={location.pathname === '/users'}
