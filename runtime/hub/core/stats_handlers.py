@@ -349,20 +349,30 @@ class StatsHourlyHandler(APIHandler):
         except ValueError:
             days = 30
 
+        try:
+            # tz_offset: minutes ahead of UTC (e.g. UTC+8 → 480, UTC-5 → -300)
+            tz_offset = int(self.get_argument("tz_offset", "0"))
+            tz_offset = max(-720, min(840, tz_offset))
+        except ValueError:
+            tz_offset = 0
+
         loop = __import__("asyncio").get_event_loop()
-        result = await loop.run_in_executor(None, self._query, days)
+        result = await loop.run_in_executor(None, self._query, days, tz_offset)
         self.set_header("Content-Type", "application/json")
         self.finish(json.dumps(result))
 
-    def _query(self, days: int):
+    def _query(self, days: int, tz_offset: int):
         import sqlalchemy as sa
 
         since = datetime.now() - timedelta(days=days)
+        offset_sign = "+" if tz_offset >= 0 else "-"
+        offset_abs = abs(tz_offset)
+        offset_expr = f"datetime(start_time, '{offset_sign}{offset_abs} minutes')"
 
         with session_scope() as session:
             rows = session.execute(
                 sa.text(
-                    "SELECT CAST(strftime('%H', start_time) AS INTEGER) as hour, "
+                    f"SELECT CAST(strftime('%H', {offset_expr}) AS INTEGER) as hour, "
                     "COUNT(*) as sessions, "
                     "COALESCE(SUM(duration_minutes), 0) as minutes "
                     "FROM quota_usage_sessions "

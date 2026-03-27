@@ -234,7 +234,9 @@ export function Dashboard() {
                           </span>
                         </td>
                         <td><code>{s.resource_type}</code></td>
-                        <td className="text-body-secondary tw:text-xs">{s.start_time.slice(0, 16).replace('T', ' ')}</td>
+                        <td className="text-body-secondary tw:text-xs">
+                          {new Date(s.start_time + 'Z').toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </td>
                         <td>
                           {s.idle_warning && <i className="bi bi-exclamation-triangle-fill text-warning me-1" title="Possibly idle" />}
                           {formatMinutes(s.elapsed_minutes)}

@@ -22,7 +22,8 @@ export async function getDistribution(days = 30): Promise<StatsDistributionRespo
 }
 
 export async function getHourlyDistribution(days = 30): Promise<{ hourly: import('../types/stats.js').HourlyUsage[] }> {
-  return adminApiRequest(`/stats/hourly?days=${days}`);
+  const tzOffset = -new Date().getTimezoneOffset(); // minutes ahead of UTC
+  return adminApiRequest(`/stats/hourly?days=${days}&tz_offset=${tzOffset}`);
 }
 
 export async function getUserDetail(username: string, days = 30, granularity: "day" | "week" = "day"): Promise<UserDetail> {
