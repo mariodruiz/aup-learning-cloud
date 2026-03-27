@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Spinner, Alert } from 'react-bootstrap';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import { NavBar } from '../components/NavBar';
 import { UserDetailModal } from '../components/UserDetailModal';
@@ -12,6 +12,7 @@ import {
   getDashboardOverview,
   getUsageTimeSeries,
   getDistribution,
+  getHourlyDistribution,
   createActiveSessionsSSE,
   stopServer,
 } from '@auplc/shared';
@@ -22,6 +23,7 @@ import type {
   TopUser,
   ActiveSession,
   PendingSpawn,
+  HourlyUsage,
 } from '@auplc/shared';
 
 const PIE_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
@@ -82,6 +84,7 @@ export function Dashboard() {
   const [dailyUsage, setDailyUsage] = useState<DailyUsage[]>([]);
   const [byResource, setByResource] = useState<ResourceDistribution[]>([]);
   const [topUsers, setTopUsers] = useState<TopUser[]>([]);
+  const [hourlyUsage, setHourlyUsage] = useState<HourlyUsage[]>([]);
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [pendingSpawns, setPendingSpawns] = useState<PendingSpawn[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,15 +106,17 @@ export function Dashboard() {
     try {
       setLoading(true);
       setError(null);
-      const [ov, usage, dist] = await Promise.all([
+      const [ov, usage, dist, hourly] = await Promise.all([
         getDashboardOverview(),
         getUsageTimeSeries(days, granularity),
         getDistribution(days),
+        getHourlyDistribution(days),
       ]);
       setOverview(ov);
       setDailyUsage(usage.daily_usage);
       setByResource(dist.by_resource);
       setTopUsers(dist.top_users);
+      setHourlyUsage(hourly.hourly);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load dashboard data');
     } finally {
@@ -317,6 +322,30 @@ export function Dashboard() {
                   <Line yAxisId="minutes" type="monotone" dataKey="minutes" stroke="#6366f1" strokeWidth={2} dot={false} name="Minutes" />
                   <Line yAxisId="users" type="monotone" dataKey="users" stroke="#10b981" strokeWidth={2} dot={false} name="Active Users" />
                 </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Hourly usage distribution — full width */}
+          <div className="bg-body border tw:rounded-xl tw:shadow-sm tw:p-5 tw:mb-4">
+            <h6 className="text-body-secondary tw:font-semibold tw:mb-4">
+              <i className="bi bi-clock me-2" />Sessions by Hour of Day
+            </h6>
+            {hourlyUsage.every(h => h.sessions === 0) ? (
+              <p className="text-body-secondary tw:text-sm tw:text-center tw:py-10">No data for this period</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={hourlyUsage} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--bs-border-color)" />
+                  <XAxis dataKey="hour" tick={{ fontSize: 11, fill: 'var(--bs-body-color)' }} tickFormatter={h => `${h}:00`} interval={2} />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--bs-body-color)' }} allowDecimals={false} />
+                  <Tooltip
+                    formatter={(v, name) => [v, name === 'sessions' ? 'Sessions' : name]}
+                    labelFormatter={h => `${h}:00 – ${h}:59`}
+                    contentStyle={{ backgroundColor: 'var(--bs-body-bg)', border: '1px solid var(--bs-border-color)', color: 'var(--bs-body-color)' }}
+                  />
+                  <Bar dataKey="sessions" fill="#8b5cf6" name="sessions" radius={[3, 3, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             )}
           </div>

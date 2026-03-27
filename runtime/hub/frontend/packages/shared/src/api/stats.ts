@@ -21,6 +21,10 @@ export async function getDistribution(days = 30): Promise<StatsDistributionRespo
   return adminApiRequest<StatsDistributionResponse>(`/stats/distribution?days=${days}`);
 }
 
+export async function getHourlyDistribution(days = 30): Promise<{ hourly: import('../types/stats.js').HourlyUsage[] }> {
+  return adminApiRequest(`/stats/hourly?days=${days}`);
+}
+
 export async function getUserDetail(username: string, days = 30, granularity: "day" | "week" = "day"): Promise<UserDetail> {
   return adminApiRequest<UserDetail>(`/stats/user/${encodeURIComponent(username)}?days=${days}&granularity=${granularity}`);
 }

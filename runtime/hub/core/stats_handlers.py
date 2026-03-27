@@ -316,6 +316,54 @@ class StatsUserHandler(APIHandler):
         }
 
 
+class StatsHourlyHandler(APIHandler):
+    """Usage distribution by hour of day."""
+
+    @web.authenticated
+    async def get(self):
+        assert self.current_user is not None
+        if not _require_admin(self):
+            return
+
+        try:
+            days = int(self.get_argument("days", "30"))
+            days = max(1, min(days, 365))
+        except ValueError:
+            days = 30
+
+        loop = __import__("asyncio").get_event_loop()
+        result = await loop.run_in_executor(None, self._query, days)
+        self.set_header("Content-Type", "application/json")
+        self.finish(json.dumps(result))
+
+    def _query(self, days: int):
+        import sqlalchemy as sa
+
+        since = datetime.now() - timedelta(days=days)
+
+        with session_scope() as session:
+            rows = session.execute(
+                sa.text(
+                    "SELECT CAST(strftime('%H', start_time) AS INTEGER) as hour, "
+                    "COUNT(*) as sessions, "
+                    "COALESCE(SUM(duration_minutes), 0) as minutes "
+                    "FROM quota_usage_sessions "
+                    "WHERE status IN ('completed', 'cleaned_up') "
+                    "AND start_time >= :since "
+                    "GROUP BY hour ORDER BY hour ASC"
+                ),
+                {"since": since},
+            ).fetchall()
+
+        by_hour = {int(r[0]): {"sessions": int(r[1]), "minutes": int(r[2])} for r in rows}
+        return {
+            "hourly": [
+                {"hour": h, "sessions": by_hour.get(h, {}).get("sessions", 0), "minutes": by_hour.get(h, {}).get("minutes", 0)}
+                for h in range(24)
+            ]
+        }
+
+
 IDLE_WARN_MINUTES = 120  # sessions longer than this are flagged as potentially idle
 
 

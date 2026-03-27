@@ -52,6 +52,12 @@ export interface StatsDistributionResponse {
   top_users: TopUser[];
 }
 
+export interface HourlyUsage {
+  hour: number;
+  sessions: number;
+  minutes: number;
+}
+
 export interface UserSession {
   resource_type: string;
   start_time: string;
