@@ -18,7 +18,7 @@
 // SOFTWARE.
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { NavBar } from '../components/NavBar';
 import { Table, Button, Form, InputGroup, Badge, Spinner, Alert, ButtonGroup, Modal } from 'react-bootstrap';
 import type { User, UserQuota, Server } from '@auplc/shared';
 import * as api from '@auplc/shared';
@@ -28,6 +28,7 @@ import { SetPasswordModal } from '../components/SetPasswordModal';
 import { BatchPasswordModal } from '../components/BatchPasswordModal';
 import { EditUserModal } from '../components/EditUserModal';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { UserDetailModal } from '../components/UserDetailModal';
 
 // Map frontend sort columns to API sort parameters
 // JupyterHub API only supports: id, name, last_activity
@@ -100,6 +101,7 @@ interface UserRowProps {
   onEditUser: (user: User) => void;
   onPasswordReset: (user: User) => void;
   onDeleteUser: (user: User) => void;
+  onViewUsage: (username: string) => void;
 }
 
 const UserRow = memo(function UserRow({
@@ -124,6 +126,7 @@ const UserRow = memo(function UserRow({
   onEditUser,
   onPasswordReset,
   onDeleteUser,
+  onViewUsage,
 }: UserRowProps) {
   const isExpanded = expandedUsers.has(user.name);
   const isSelected = selectedUsers.has(user.name);
@@ -257,6 +260,14 @@ const UserRow = memo(function UserRow({
               Edit User
             </Button>
 
+            <Button
+              variant="light"
+              onClick={() => onViewUsage(user.name)}
+              title="View Usage"
+            >
+              <i className="bi bi-clock-history"></i> Usage
+            </Button>
+
             {isNativeUser(user) && (
               <Button
                 variant="light"
@@ -362,7 +373,6 @@ const ServerDetails = memo(function ServerDetails({ serverName, server, userName
 });
 
 export function UserList() {
-  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -393,6 +403,7 @@ export function UserList() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
   const [showBatchPasswordModal, setShowBatchPasswordModal] = useState(false);
+  const [usageUsername, setUsageUsername] = useState<string | null>(null);
 
   const jhdata = window.jhdata ?? {};
   const baseUrl = jhdata.base_url ?? '/hub/';
@@ -766,6 +777,7 @@ export function UserList() {
 
   return (
     <div>
+      <NavBar />
       {/* Top Controls */}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="d-flex gap-2">
@@ -820,13 +832,7 @@ export function UserList() {
           </Button>
         </div>
         <div className="d-flex gap-2">
-          <Button
-            variant="outline-secondary"
-            onClick={() => navigate('/groups')}
-          >
-            Manage Groups
-          </Button>
-          <Button
+<Button
             variant="outline-secondary"
             as="a"
             href={`${baseUrl}admin`}
@@ -928,6 +934,7 @@ export function UserList() {
               onEditUser={openEditModal}
               onPasswordReset={openPasswordModal}
               onDeleteUser={openDeleteModal}
+              onViewUsage={setUsageUsername}
             />
           ))}
         </tbody>
@@ -1085,6 +1092,12 @@ export function UserList() {
         onConfirm={handleBatchDelete}
         onCancel={() => setShowBatchDeleteModal(false)}
         loading={actionLoading === 'batch-delete'}
+      />
+
+      {/* User Usage Detail Modal */}
+      <UserDetailModal
+        username={usageUsername}
+        onClose={() => setUsageUsername(null)}
       />
     </div>
   );

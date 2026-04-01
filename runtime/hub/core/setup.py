@@ -281,24 +281,28 @@ def setup_hub(c: Any) -> None:
     # Initialize Quota Manager
     # =========================================================================
 
+    # Always initialize QuotaManager for session tracking (regardless of quota_enabled)
+    try:
+        from core.quota import init_quota_manager
+
+        quota_manager = init_quota_manager()
+        stale_sessions = quota_manager.cleanup_stale_sessions()
+        if stale_sessions:
+            print(f"[QUOTA] Cleaned up {len(stale_sessions)} stale sessions on startup")
+        active_count = quota_manager.get_active_sessions_count()
+        print(f"[QUOTA] {active_count} active sessions found")
+    except Exception as e:
+        print(f"[QUOTA] Warning: Failed to initialize quota manager: {e}")
+
     if config.quota_enabled:
         try:
-            from core.quota import init_quota_manager
             from core.quota.migrate import check_migration_needed, migrate_quota_data
 
-            # Check and run migration from old quota.sqlite if needed
             if check_migration_needed():
                 print("[QUOTA] Migrating data from old quota.sqlite...")
                 migrate_quota_data(db_url)
-
-            quota_manager = init_quota_manager()
-            stale_sessions = quota_manager.cleanup_stale_sessions()
-            if stale_sessions:
-                print(f"[QUOTA] Cleaned up {len(stale_sessions)} stale sessions on startup")
-            active_count = quota_manager.get_active_sessions_count()
-            print(f"[QUOTA] {active_count} active sessions found")
         except Exception as e:
-            print(f"[QUOTA] Warning: Failed to initialize quota manager: {e}")
+            print(f"[QUOTA] Warning: Failed to run quota migration: {e}")
 
     # =========================================================================
     # API Token

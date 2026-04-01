@@ -701,18 +701,20 @@ class RemoteLabKubeSpawner(KubeSpawner):
         # Determine accelerator type for quota calculation
         accelerator_type = gpu_selection if gpu_selection else "cpu"
 
+        from core.quota import get_quota_manager
+
+        quota_manager = get_quota_manager()
+
+        # Always start a usage session for tracking, regardless of quota state
+        self.usage_session_id = quota_manager.start_usage_session(username, resource_type, accelerator_type)
+
         # Quota check (if enabled)
         if self.quota_enabled:
-            from core.quota import get_quota_manager
-
-            quota_manager = get_quota_manager()
-
             # Check if user has unlimited quota
             has_unlimited = quota_manager.is_unlimited_in_db(username)
 
             if has_unlimited:
                 print(f"[QUOTA] User {username} has unlimited quota, skipping quota check")
-                self.usage_session_id = None
                 self._has_unlimited_quota = True
             else:
                 can_start, message, estimated_cost = quota_manager.can_start_container(
@@ -730,14 +732,11 @@ class RemoteLabKubeSpawner(KubeSpawner):
                         f"Cannot start container: {message}. Please contact administrator to add quota.",
                     )
 
-                # Start usage session for tracking
-                self.usage_session_id = quota_manager.start_usage_session(username, accelerator_type)
                 self._has_unlimited_quota = False
                 print(
                     f"[QUOTA] Session {self.usage_session_id} started for {username} ({accelerator_type}), estimated cost: {estimated_cost}"
                 )
         else:
-            self.usage_session_id = None
             self._has_unlimited_quota = True
 
         start_time = int(time.time())
@@ -911,19 +910,29 @@ class RemoteLabKubeSpawner(KubeSpawner):
         # Clean up any leftover git token secrets
         await self._cleanup_git_token_secrets()
 
-        if self.quota_enabled and hasattr(self, "usage_session_id") and self.usage_session_id:
-            session_id = self.usage_session_id
-            username = self.user.name
+        username = self.user.name
+        try:
+            from core.quota import get_quota_manager
+
+            quota_manager = get_quota_manager()
+            quota_rates = self.quota_rates if self.quota_enabled else None
+
+            session_id = getattr(self, "usage_session_id", None)
             self.usage_session_id = None
 
-            try:
-                from core.quota import get_quota_manager
-
-                quota_manager = get_quota_manager()
-                duration, quota_used = quota_manager.end_usage_session(session_id, self.quota_rates)
-                print(f"[QUOTA] Session ended for {username}. Duration: {duration} min, Quota used: {quota_used}")
-            except Exception as e:
-                print(f"[QUOTA] Error ending session for {username}: {e}")
+            if session_id:
+                duration, quota_used = quota_manager.end_usage_session(session_id, quota_rates)
+                print(f"[USAGE] Session ended for {username}. Duration: {duration} min, Quota used: {quota_used}")
+            else:
+                # Hub may have restarted and lost in-memory session id — find and close any active session for this user
+                active = quota_manager.get_active_session(username)
+                if active:
+                    duration, quota_used = quota_manager.end_usage_session(active["session_id"], quota_rates)
+                    print(
+                        f"[USAGE] Recovered session for {username}. Duration: {duration} min, Quota used: {quota_used}"
+                    )
+        except Exception as e:
+            print(f"[USAGE] Error ending session for {username}: {e}")
 
         if hasattr(self, "check_timer") and self.check_timer:
             with contextlib.suppress(Exception):

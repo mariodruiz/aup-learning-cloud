@@ -48,6 +48,14 @@ from core.quota import (
     QuotaRefreshRequest,
     get_quota_manager,
 )
+from core.stats_handlers import (
+    StatsActiveSSEHandler,
+    StatsDistributionHandler,
+    StatsHourlyHandler,
+    StatsOverviewHandler,
+    StatsUsageHandler,
+    StatsUserHandler,
+)
 
 # =============================================================================
 # Module-level configuration (set via configure_handlers)
@@ -1464,6 +1472,15 @@ def get_handlers() -> list[tuple[str, type]]:
         (r"/admin/api/quota/([^/]+)", QuotaAPIHandler),
         (r"/api/quota/rates", QuotaRatesAPIHandler),
         (r"/api/quota/me", UserQuotaInfoHandler),
+        # Usage stats API
+        (r"/admin/api/stats/overview", StatsOverviewHandler),
+        (r"/admin/api/stats/usage", StatsUsageHandler),
+        (r"/admin/api/stats/distribution", StatsDistributionHandler),
+        (r"/admin/api/stats/hourly", StatsHourlyHandler),
+        (r"/admin/api/stats/active/stream", StatsActiveSSEHandler),
+        (r"/admin/api/stats/user/([^/]+)", StatsUserHandler),
+        # Dashboard UI
+        (r"/admin/dashboard", AdminUIHandler),
     ]
 
 
