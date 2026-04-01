@@ -347,14 +347,10 @@ hub:
 
   config:
     # ---- Hub Core ----
-    # JupyterHub:
-      # Enable JupyterHub REST API
-      # API Documentation: https://jupyterhub.readthedocs.io/en/stable/reference/rest-api.html
-      # api_tokens:
-      #   Configure API tokens for external services
-      #   Format: token: username
-      #   It's recommended to use environment variables or secrets to manage tokens
-      #   Example: "your-secure-api-token-here": "admin-service"
+    JupyterHub:
+      # Always show Home page first, even when a server is already running.
+      # Users can access their running server via the "My Server" button on Home.
+      redirect_to_server: false
 
     Authenticator:
       allow_all: true

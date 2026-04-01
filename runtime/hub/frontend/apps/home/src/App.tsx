@@ -1,10 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-
-interface JHData {
-  base_url: string;
-  xsrf_token: string;
-  user: string;
-}
+import type { Resource, ResourceGroup } from "@auplc/shared";
+import { getResources } from "@auplc/shared";
 
 interface HomeData {
   server_active: boolean;
@@ -13,12 +9,11 @@ interface HomeData {
 
 declare global {
   interface Window {
-    jhdata?: JHData;
     HOME_DATA?: HomeData;
   }
 }
 
-const jhdata: JHData = window.jhdata ?? {
+const jhdata = window.jhdata ?? {
   base_url: "/hub/",
   xsrf_token: "",
   user: "student",
@@ -31,10 +26,27 @@ const homeData: HomeData = window.HOME_DATA ?? {
 
 const baseUrl = jhdata.base_url;
 
+function formatResourceSpecs(r: Resource): string {
+  const req = r.requirements;
+  const mem = req.memory.replace("Gi", "GB");
+  let spec = `${req.cpu} CPU, ${mem}`;
+  if (req["amd.com/gpu"]) spec += `, ${req["amd.com/gpu"]} GPU`;
+  if (req["amd.com/npu"]) spec += `, ${req["amd.com/npu"]} NPU`;
+  return spec;
+}
+
+function getAcceleratorType(r: Resource): "gpu" | "npu" | "cpu" {
+  if (r.requirements["amd.com/gpu"]) return "gpu";
+  if (r.requirements["amd.com/npu"]) return "npu";
+  return "cpu";
+}
+
 function App() {
   const [serverActive, setServerActive] = useState(homeData.server_active);
   const [stopping, setStopping] = useState(false);
   const [announcement, setAnnouncement] = useState<string | null>(null);
+  const [groups, setGroups] = useState<ResourceGroup[]>([]);
+  const [resourcesLoading, setResourcesLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${baseUrl}static/announcement.txt`)
@@ -48,6 +60,15 @@ function App() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    getResources()
+      .then((data) => {
+        setGroups(data.groups.filter((g) => g.resources.length > 0));
+      })
+      .catch(() => {})
+      .finally(() => setResourcesLoading(false));
+  }, []);
+
   const handleStop = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
@@ -59,12 +80,10 @@ function App() {
           `${baseUrl}api/users/${jhdata.user}/server`,
           {
             method: "DELETE",
-            headers: { "X-XSRFToken": jhdata.xsrf_token },
+            headers: { "X-XSRFToken": jhdata.xsrf_token ?? "" },
           },
         );
-        if (resp.ok || resp.status === 204) {
-          setServerActive(false);
-        } else if (resp.status === 202) {
+        if (resp.ok || resp.status === 204 || resp.status === 202) {
           setServerActive(false);
         }
       } catch (err) {
@@ -74,6 +93,11 @@ function App() {
       }
     },
     [stopping],
+  );
+
+  const totalResources = groups.reduce(
+    (sum, g) => sum + g.resources.length,
+    0,
   );
 
   return (
@@ -115,10 +139,10 @@ function App() {
             </div>
             <div className="lb-desc">
               {stopping
-                ? "Stopping your server…"
+                ? "Stopping your server\u2026"
                 : serverActive
                   ? 'Your server is running \u2014 click "My Server" to open JupyterLab'
-                  : "Choose a course and launch your Jupyter environment"}
+                  : "Choose a resource below and launch your Jupyter environment"}
             </div>
           </div>
           <div className="lb-actions">
@@ -130,8 +154,10 @@ function App() {
                   className="btn-home-sm danger"
                   onClick={handleStop}
                 >
-                  <i className={`fa ${stopping ? "fa-spinner fa-spin" : "fa-stop"}`}></i>{" "}
-                  {stopping ? "Stopping…" : "Stop My Server"}
+                  <i
+                    className={`fa ${stopping ? "fa-spinner fa-spin" : "fa-stop"}`}
+                  ></i>{" "}
+                  {stopping ? "Stopping\u2026" : "Stop My Server"}
                 </a>
                 <a
                   id="start"
@@ -156,85 +182,118 @@ function App() {
         </div>
       </div>
 
-      {/* Quick Start */}
+      {/* Quick Start (compact strip) */}
       <div className="container">
-        <section className="home-section">
-          <div className="home-section-header">
-            <h2>Quick Start</h2>
-          </div>
-          <div className="qs-grid">
-            <div className="qs-card">
+        <section className="home-section" style={{ paddingBottom: "0.5rem" }}>
+          <div className="qs-strip">
+            <div className="qs-step">
               <div className="qs-num">1</div>
-              <h3>Choose a Course</h3>
-              <p>
-                Select from pre-configured environments for CV, Deep Learning,
-                LLMs, or Physics Simulation.
-              </p>
+              <div className="qs-step-text">
+                <h4>Choose a Resource</h4>
+                <p>Pick a pre-configured environment below</p>
+              </div>
             </div>
-            <div className="qs-card">
+            <div className="qs-step">
               <div className="qs-num">2</div>
-              <h3>Launch Your Server</h3>
-              <p>
-                Click &ldquo;Start My Server&rdquo; to spin up a Jupyter
-                environment with GPU/NPU acceleration.
-              </p>
+              <div className="qs-step-text">
+                <h4>Configure &amp; Launch</h4>
+                <p>Select GPU, set runtime, then launch</p>
+              </div>
             </div>
-            <div className="qs-card">
+            <div className="qs-step">
               <div className="qs-num">3</div>
-              <h3>Start Learning</h3>
-              <p>
-                Open notebooks, run experiments, and explore AMD ROCm-powered AI
-                workflows.
-              </p>
+              <div className="qs-step-text">
+                <h4>Start Learning</h4>
+                <p>Open notebooks and run experiments</p>
+              </div>
             </div>
           </div>
         </section>
       </div>
 
-      {/* Available Courses */}
+      {/* Available Resources (dynamic from API) */}
       <div className="container">
-        <section className="home-section" style={{ paddingTop: 0 }}>
+        <section className="home-section">
           <div className="home-section-header">
-            <h2>Available Courses</h2>
+            <h2>Available Resources</h2>
             <a href={`${baseUrl}spawn`}>
-              View all in Spawner{" "}
-              <i className="fa fa-arrow-right" style={{ fontSize: "0.7rem" }}></i>
+              View all options{" "}
+              <i
+                className="fa fa-arrow-right"
+                style={{ fontSize: "0.7rem" }}
+              ></i>
             </a>
           </div>
-          <div className="courses-grid">
-            <a className="course-card" href={`${baseUrl}spawn`}>
-              <div className="course-icon icon-cv">CV</div>
-              <h3>Computer Vision</h3>
+
+          {resourcesLoading ? (
+            <div className="resources-loading">
+              <i className="fa fa-spinner fa-spin"></i> Loading resources…
+            </div>
+          ) : totalResources === 0 ? (
+            <div className="resources-empty">
               <p>
-                Image classification, object detection &amp; segmentation with
-                AMD GPUs.
+                No resources available.{" "}
+                <a href={`${baseUrl}spawn`}>Go to Spawner</a>
               </p>
-              <span className="course-tag tag-gpu">GPU</span>
-            </a>
-            <a className="course-card" href={`${baseUrl}spawn`}>
-              <div className="course-icon icon-dl">DL</div>
-              <h3>Deep Learning</h3>
-              <p>
-                Neural networks, training pipelines &amp; optimization on ROCm.
-              </p>
-              <span className="course-tag tag-gpu">GPU</span>
-            </a>
-            <a className="course-card" href={`${baseUrl}spawn`}>
-              <div className="course-icon icon-llm">LLM</div>
-              <h3>Large Language Models</h3>
-              <p>
-                Transformer fine-tuning &amp; inference with AMD Instinct
-                accelerators.
-              </p>
-              <span className="course-tag tag-gpu">GPU</span>
-            </a>
-            <a className="course-card" href={`${baseUrl}spawn`}>
-              <div className="course-icon icon-phy">PS</div>
-              <h3>Physics Simulation</h3>
-              <p>Scientific computing &amp; physics-based simulations.</p>
-              <span className="course-tag tag-cpu">CPU</span>
-            </a>
-          </div>
+            </div>
+          ) : (
+            groups.map((group) => (
+              <div className="resource-group" key={group.name}>
+                <div className="resource-group-header">
+                  <h3>{group.displayName}</h3>
+                  <span className="group-count">
+                    {group.resources.length}{" "}
+                    {group.resources.length === 1 ? "resource" : "resources"}
+                  </span>
+                </div>
+                <div className="resources-grid">
+                  {group.resources.map((resource) => {
+                    const accelType = getAcceleratorType(resource);
+                    return (
+                      <a
+                        className="resource-card"
+                        href={`${baseUrl}spawn?resource=${encodeURIComponent(resource.key)}`}
+                        key={resource.key}
+                      >
+                        <div className="resource-card-top">
+                          <div className="resource-card-info">
+                            <h4>
+                              {resource.metadata?.description ?? resource.key}
+                            </h4>
+                            {resource.metadata?.subDescription && (
+                              <p>{resource.metadata.subDescription}</p>
+                            )}
+                          </div>
+                          <span className="resource-card-arrow">
+                            <i className="fa fa-arrow-right"></i>
+                          </span>
+                        </div>
+                        <div className="resource-card-tags">
+                          <span
+                            className={`resource-tag tag-${accelType}`}
+                          >
+                            {accelType.toUpperCase()}
+                          </span>
+                          <span className="resource-tag tag-spec">
+                            {formatResourceSpecs(resource)}
+                          </span>
+                          {resource.metadata?.allowGitClone && (
+                            <span className="resource-tag tag-git">
+                              <i
+                                className="fa fa-code-fork"
+                                style={{ fontSize: "0.55rem" }}
+                              ></i>{" "}
+                              Git
+                            </span>
+                          )}
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
         </section>
       </div>
 
@@ -295,7 +354,7 @@ function App() {
                   </div>
                   <div className="doc-text">
                     <h4>Platform Getting Started</h4>
-                    <p>First-time user guide fo AUP Learning Cloud setup</p>
+                    <p>First-time user guide for AUP Learning Cloud setup</p>
                   </div>
                 </a>
                 <a
@@ -312,7 +371,7 @@ function App() {
                   </div>
                   <div className="doc-text">
                     <h4>AUP Learning Cloud GitHub Repository</h4>
-                    <p>Clone &amp; launch your own AUP Learning Cloud </p>
+                    <p>Clone &amp; launch your own AUP Learning Cloud</p>
                   </div>
                 </a>
               </div>
@@ -326,7 +385,7 @@ function App() {
                   <div className="news-card">
                     <div className="news-meta">Announcement</div>
                     <h4>Platform Announcement</h4>
-                    <p>{announcement}</p>
+                    <p dangerouslySetInnerHTML={{ __html: announcement }} />
                   </div>
                 )}
                 <div className="news-card">
