@@ -343,12 +343,7 @@ hub:
     # If you want to edit the notice on login.html, change here.
       mountPath: /usr/local/share/jupyterhub/static/announcement.txt
       stringData: |
-          <div class="announcement-box" style="padding: 1em; border: 1px solid #ccc; border-radius: 6px; background-color: #f8f8f8;">
-          <h3>Welcome to AUP Learning Cloud!</h3>
-          <p>This is a <strong>dynamic announcement</strong>.</p>
-          <p>My location is on <code>runtime/values.yaml</code></p>
-          <p>You can edit this via <strong>ConfigMap</strong> without rebuilding the image.</p>
-          </div>
+          Hello, World!
 
   config:
     # ---- Hub Core ----
