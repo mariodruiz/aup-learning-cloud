@@ -109,7 +109,7 @@ function App() {
         } else {
           setStopError(`Failed to stop server (HTTP ${resp.status})`);
         }
-      } catch (err) {
+      } catch {
         setStopError("Network error — could not reach the server");
       } finally {
         setStopping(false);
