@@ -439,7 +439,8 @@ function App() {
       {/* Footer */}
       <div className="home-footer">
         <div className="container">
-          &copy; 2025 Advanced Micro Devices, Inc. All rights reserved. &middot;
+          &copy; 2025–2026 Advanced Micro Devices, Inc. All rights reserved.
+          &middot;
           AUP Learning Cloud
         </div>
       </div>
