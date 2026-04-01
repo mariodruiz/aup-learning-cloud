@@ -158,6 +158,10 @@ class ChangePasswordHandler(BaseHandler):
         new_password = self.get_body_argument("new_password", default=None)
         confirm_password = self.get_body_argument("confirm_password", default=None)
 
+        assert current_password is not None
+        assert new_password is not None
+        assert confirm_password is not None
+
         if not all([current_password, new_password, confirm_password]):
             self.set_status(400)
             return self.finish("All fields are required")
@@ -1057,6 +1061,7 @@ class ValidateRepoHandler(APIHandler):
         access_token = ""
         try:
             user = self.current_user
+            assert user is not None
             auth_state = await user.get_auth_state()
             if auth_state and auth_state.get("access_token") and config.git_clone.githubAppName:
                 access_token = auth_state["access_token"]
@@ -1078,6 +1083,7 @@ class GitHubReposHandler(APIHandler):
     @web.authenticated
     async def get(self):
         user = self.current_user
+        assert user is not None
         try:
             auth_state = await user.get_auth_state()
         except Exception:
@@ -1182,6 +1188,7 @@ class GroupsAPIHandler(APIHandler):
 
     @web.authenticated
     async def get(self):
+        assert self.current_user is not None
         if not self.current_user.admin:
             raise web.HTTPError(403, "Admin access required")
 
@@ -1223,6 +1230,7 @@ class GroupDetailAPIHandler(APIHandler):
 
     @web.authenticated
     async def delete(self, group_name):
+        assert self.current_user is not None
         if not self.current_user.admin:
             raise web.HTTPError(403, "Admin access required")
 
@@ -1243,6 +1251,7 @@ class GroupDetailAPIHandler(APIHandler):
 
     @web.authenticated
     async def patch(self, group_name):
+        assert self.current_user is not None
         if not self.current_user.admin:
             raise web.HTTPError(403, "Admin access required")
 
@@ -1294,6 +1303,7 @@ class GroupMembersAPIHandler(APIHandler):
 
     @web.authenticated
     async def post(self, group_name):
+        assert self.current_user is not None
         if not self.current_user.admin:
             raise web.HTTPError(403, "Admin access required")
 
@@ -1337,6 +1347,7 @@ class GroupMembersAPIHandler(APIHandler):
 
     @web.authenticated
     async def delete(self, group_name):
+        assert self.current_user is not None
         if not self.current_user.admin:
             raise web.HTTPError(403, "Admin access required")
 
@@ -1384,6 +1395,7 @@ class GroupSyncAPIHandler(APIHandler):
 
     @web.authenticated
     async def post(self):
+        assert self.current_user is not None
         if not self.current_user.admin:
             raise web.HTTPError(403, "Admin access required")
 

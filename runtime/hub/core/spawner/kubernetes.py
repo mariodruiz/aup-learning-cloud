@@ -483,7 +483,7 @@ class RemoteLabKubeSpawner(KubeSpawner):
 
         clone_dir = f"{home_mount_path}/{repo_name}"
 
-        env = [
+        env: list[dict[str, Any]] = [
             {"name": "REPO_URL", "value": repo_url},
             {"name": "CLONE_DIR", "value": clone_dir},
             {"name": "MAX_CLONE_TIMEOUT", "value": str(self.MAX_CLONE_TIMEOUT)},
