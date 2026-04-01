@@ -29,7 +29,8 @@ ARG NPM_REGISTRY
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@10.27.0 --activate
+RUN if [ -n "${NPM_REGISTRY}" ]; then npm config set registry "${NPM_REGISTRY}"; fi
+RUN npm install -g pnpm@10.27.0
 RUN if [ -n "${NPM_REGISTRY}" ]; then pnpm config set registry "${NPM_REGISTRY}"; fi
 
 # Copy monorepo configuration and lockfile
@@ -39,6 +40,7 @@ COPY runtime/hub/frontend/pnpm-workspace.yaml runtime/hub/frontend/pnpm-lock.yam
 COPY runtime/hub/frontend/packages/shared/package.json ./packages/shared/
 COPY runtime/hub/frontend/apps/admin/package.json ./apps/admin/
 COPY runtime/hub/frontend/apps/spawn/package.json ./apps/spawn/
+COPY runtime/hub/frontend/apps/home/package.json ./apps/home/
 
 # Install dependencies with frozen lockfile
 RUN pnpm install --frozen-lockfile
@@ -59,13 +61,16 @@ USER root
 # Frontend: templates and static files
 RUN mkdir -p /tmp/custom_templates/static/css /tmp/custom_templates/static/js \
     /usr/local/share/jupyterhub/static/admin-ui \
-    /usr/local/share/jupyterhub/static/spawn-ui
+    /usr/local/share/jupyterhub/static/spawn-ui \
+    /usr/local/share/jupyterhub/static/home-ui
 
 COPY --chmod=644 runtime/hub/frontend/templates/ /tmp/custom_templates/
 COPY --from=frontend-builder /app/apps/admin/dist/ /usr/local/share/jupyterhub/static/admin-ui/
 COPY --from=frontend-builder /app/apps/spawn/dist/ /usr/local/share/jupyterhub/static/spawn-ui/
+COPY --from=frontend-builder /app/apps/home/dist/ /usr/local/share/jupyterhub/static/home-ui/
 RUN chown -R 1000:1000 /usr/local/share/jupyterhub/static/admin-ui/ \
-    /usr/local/share/jupyterhub/static/spawn-ui/
+    /usr/local/share/jupyterhub/static/spawn-ui/ \
+    /usr/local/share/jupyterhub/static/home-ui/
 
 # Backend: Python dependencies and core logic
 RUN pip install --no-cache-dir uv
@@ -90,4 +95,5 @@ ENV JUPYTERHUB_TEMPLATE_PATH=/tmp/custom_templates
 
 RUN ls -la /tmp/custom_templates && \
     ls -la /usr/local/share/jupyterhub/static/admin-ui/ && \
-    ls -la /usr/local/share/jupyterhub/static/spawn-ui/
+    ls -la /usr/local/share/jupyterhub/static/spawn-ui/ && \
+    ls -la /usr/local/share/jupyterhub/static/home-ui/
