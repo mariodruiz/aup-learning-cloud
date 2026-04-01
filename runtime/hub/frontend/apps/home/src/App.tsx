@@ -48,6 +48,7 @@ function App() {
   const [announcement, setAnnouncement] = useState<string | null>(null);
   const [groups, setGroups] = useState<ResourceGroup[]>([]);
   const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [resourcesError, setResourcesError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${baseUrl}static/announcement.txt`)
@@ -79,7 +80,11 @@ function App() {
 
         setGroups(filtered);
       })
-      .catch(() => {})
+      .catch((err) => {
+        setResourcesError(
+          err instanceof Error ? err.message : "Failed to load resources",
+        );
+      })
       .finally(() => setResourcesLoading(false));
   }, []);
 
@@ -242,6 +247,15 @@ function App() {
           {resourcesLoading ? (
             <div className="resources-loading">
               <i className="fa fa-spinner fa-spin"></i> Loading resources…
+            </div>
+          ) : resourcesError ? (
+            <div className="resources-error">
+              <p>
+                <strong>Error:</strong> {resourcesError}
+              </p>
+              <p>
+                <a href={`${baseUrl}spawn`}>Go to Spawner</a>
+              </p>
             </div>
           ) : totalResources === 0 ? (
             <div className="resources-empty">
