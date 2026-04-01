@@ -49,6 +49,7 @@ function App() {
   const [groups, setGroups] = useState<ResourceGroup[]>([]);
   const [resourcesLoading, setResourcesLoading] = useState(true);
   const [resourcesError, setResourcesError] = useState<string | null>(null);
+  const [stopError, setStopError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${baseUrl}static/announcement.txt`)
@@ -94,6 +95,7 @@ function App() {
       e.nativeEvent.stopImmediatePropagation();
       if (stopping) return;
       setStopping(true);
+      setStopError(null);
       try {
         const resp = await fetch(
           `${baseUrl}api/users/${jhdata.user}/server`,
@@ -104,9 +106,11 @@ function App() {
         );
         if (resp.ok || resp.status === 204 || resp.status === 202) {
           setServerActive(false);
+        } else {
+          setStopError(`Failed to stop server (HTTP ${resp.status})`);
         }
       } catch (err) {
-        console.error("Failed to stop server:", err);
+        setStopError("Network error — could not reach the server");
       } finally {
         setStopping(false);
       }
@@ -157,7 +161,9 @@ function App() {
               )}
             </div>
             <div className="lb-desc">
-              {stopping
+              {stopError ? (
+                <span className="lb-error">{stopError}</span>
+              ) : stopping
                 ? "Stopping your server\u2026"
                 : serverActive
                   ? 'Your server is running \u2014 click "My Server" to open JupyterLab'
