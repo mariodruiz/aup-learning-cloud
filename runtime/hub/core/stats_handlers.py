@@ -414,7 +414,12 @@ class StatsMyUsageHandler(APIHandler):
 
         loop = __import__("asyncio").get_event_loop()
         result = await loop.run_in_executor(
-            None, StatsUserHandler._query, None, username, days, granularity
+            None,
+            StatsUserHandler._query,
+            None,
+            username,
+            days,
+            granularity,
         )
         self.set_header("Content-Type", "application/json")
         self.finish(json.dumps(result))
