@@ -536,6 +536,11 @@ function App() {
                     <div className="sidebar-quota-preview">
                       Est. cost: <strong style={{ color: canAfford ? '#2e7d32' : '#c62828' }}>{cost}</strong>
                       {' · '}Remaining: <strong style={{ color: canAfford ? '#2e7d32' : '#c62828' }}>{(quota?.balance ?? 0) - cost}</strong>
+                      <span className="quota-rate-tip" title={
+                        `Rate: ${selectedAccelerator?.quotaRate ?? quota?.rates?.cpu ?? 1} credits/min` +
+                        (selectedAccelerator ? ` (${selectedAccelerator.displayName})` : ' (CPU)') +
+                        `\nCost = rate × ${runtime} min = ${cost} credits`
+                      }>?</span>
                     </div>
                   )}
                 </div>
