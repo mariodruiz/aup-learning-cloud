@@ -6,7 +6,6 @@ import { Spinner, Alert } from 'react-bootstrap';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { NavBar } from '../components/NavBar';
 import { UserDetailModal } from '../components/UserDetailModal';
 import {
   getDashboardOverview,
@@ -153,8 +152,6 @@ export function Dashboard() {
 
   return (
     <div>
-      <NavBar />
-
       {/* Header row */}
       <div className="tw:flex tw:items-center tw:justify-between tw:mb-6 tw:flex-wrap tw:gap-2">
         <h4 className="text-body tw:font-semibold tw:mb-0">Usage Dashboard</h4>
