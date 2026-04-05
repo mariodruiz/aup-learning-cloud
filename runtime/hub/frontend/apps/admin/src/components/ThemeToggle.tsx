@@ -6,7 +6,9 @@ import { useEffect, useState } from 'react';
 type Theme = 'light' | 'dark';
 
 function getInitialTheme(): Theme {
-  const stored = localStorage.getItem('auplc-theme') as Theme | null;
+  const stored =
+    (localStorage.getItem('auplc-theme') as Theme | null) ??
+    (localStorage.getItem('jupyterhub-bs-theme') as Theme | null);
   if (stored === 'light' || stored === 'dark') return stored;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
@@ -14,6 +16,7 @@ function getInitialTheme(): Theme {
 function applyTheme(theme: Theme) {
   document.documentElement.setAttribute('data-bs-theme', theme);
   localStorage.setItem('auplc-theme', theme);
+  localStorage.setItem('jupyterhub-bs-theme', theme);
 }
 
 // Apply immediately on module load to avoid flash of unstyled content

@@ -4,13 +4,16 @@ import { getResources, getMyQuota, getMyUsage } from "@auplc/shared";
 
 type Theme = "light" | "dark";
 function getInitialTheme(): Theme {
-  const stored = localStorage.getItem("auplc-theme") as Theme | null;
+  const stored =
+    (localStorage.getItem("auplc-theme") as Theme | null) ??
+    (localStorage.getItem("jupyterhub-bs-theme") as Theme | null);
   if (stored === "light" || stored === "dark") return stored;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 function applyTheme(t: Theme) {
   document.documentElement.setAttribute("data-bs-theme", t);
   localStorage.setItem("auplc-theme", t);
+  localStorage.setItem("jupyterhub-bs-theme", t);
 }
 applyTheme(getInitialTheme());
 
