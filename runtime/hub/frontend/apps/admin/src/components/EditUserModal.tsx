@@ -131,11 +131,13 @@ export function EditUserModal({ show, user, onHide, onUpdate }: Props) {
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="New username"
-                  disabled={loading}
+                  disabled={loading || isGitHubUser}
                 />
               </InputGroup>
               <Form.Text className="text-muted">
-                Only letters, numbers, hyphens, and underscores allowed
+                {isGitHubUser
+                  ? 'GitHub OAuth usernames cannot be renamed'
+                  : 'Only letters, numbers, hyphens, and underscores allowed'}
               </Form.Text>
             </Form.Group>
 
