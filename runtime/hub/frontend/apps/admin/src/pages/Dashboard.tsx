@@ -50,6 +50,10 @@ function formatMinutes(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function pluralize(count: number, singular: string, plural?: string): string {
+  return count === 1 ? singular : (plural ?? singular + 's');
+}
+
 function formatResourceLabel(resourceType: string, resourceDisplay?: string | null): string {
   if (resourceDisplay && resourceDisplay !== resourceType) {
     return `${resourceDisplay} (${resourceType})`;
@@ -435,7 +439,7 @@ export function Dashboard() {
                             {formatResourceLabel(r.resource_type, r.resource_display)}
                           </span>
                           <span className="text-body-secondary tw:text-xs tw:shrink-0 tw:ml-2">
-                            {formatMinutes(r.minutes)} · {r.sessions} sessions · avg {formatMinutes(Math.round(r.avg_minutes))}
+                            {formatMinutes(r.minutes)} · {r.sessions} {pluralize(r.sessions, 'session')} · avg {formatMinutes(Math.round(r.avg_minutes))}
                           </span>
                         </div>
                         <div className="tw:w-full tw:rounded-full tw:h-1.5 bg-body-tertiary">
