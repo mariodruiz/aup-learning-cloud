@@ -248,17 +248,17 @@ const UserRow = memo(function UserRow({
               </Dropdown.Toggle>
               <Dropdown.Menu align="end">
                 <Dropdown.Item href={`${baseUrl}spawn/${user.name}`}>
-                  Spawn Page
+                  <i className="bi bi-rocket me-2" />Spawn Page
                 </Dropdown.Item>
                 <Dropdown.Item onClick={() => onEditUser(user)}>
-                  Edit User
+                  <i className="bi bi-pencil me-2" />Edit User
                 </Dropdown.Item>
                 <Dropdown.Item onClick={() => onViewUsage(user.name)}>
-                  Usage
+                  <i className="bi bi-clock-history me-2" />Usage
                 </Dropdown.Item>
                 {isNativeUser(user) && (
                   <Dropdown.Item onClick={() => onPasswordReset(user)}>
-                    Reset Password
+                    <i className="bi bi-key me-2" />Reset Password
                   </Dropdown.Item>
                 )}
                 {!isProtected && (
@@ -269,7 +269,7 @@ const UserRow = memo(function UserRow({
                       onClick={() => onDeleteUser(user)}
                       disabled={actionLoading === `delete-${user.name}`}
                     >
-                      Delete
+                      <i className="bi bi-trash me-2" />Delete
                     </Dropdown.Item>
                   </>
                 )}
