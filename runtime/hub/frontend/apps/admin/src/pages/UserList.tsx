@@ -214,10 +214,11 @@ const UserRow = memo(function UserRow({
         <td>{getServerStatusBadge(user)}</td>
         <td>{formatDate(user.last_activity)}</td>
         <td>
-          <ButtonGroup size="sm">
+          <div className="d-flex flex-wrap gap-1">
             {user.server ? (
               <Button
                 variant="dark"
+                size="sm"
                 onClick={() => onStopServer(user)}
                 disabled={actionLoading === `stop-${user.name}`}
                 title="Stop Server"
@@ -231,6 +232,7 @@ const UserRow = memo(function UserRow({
             ) : (
               <Button
                 variant="dark"
+                size="sm"
                 onClick={() => onStartServer(user)}
                 disabled={actionLoading === `start-${user.name}` || !!user.pending}
                 title="Start Server"
@@ -245,6 +247,7 @@ const UserRow = memo(function UserRow({
 
             <Button
               variant="light"
+              size="sm"
               as="a"
               href={`${baseUrl}spawn/${user.name}`}
               title="Spawn Page"
@@ -254,6 +257,7 @@ const UserRow = memo(function UserRow({
 
             <Button
               variant="light"
+              size="sm"
               onClick={() => onEditUser(user)}
               title="Edit User"
             >
@@ -262,6 +266,7 @@ const UserRow = memo(function UserRow({
 
             <Button
               variant="light"
+              size="sm"
               onClick={() => onViewUsage(user.name)}
               title="View Usage"
             >
@@ -271,6 +276,7 @@ const UserRow = memo(function UserRow({
             {isNativeUser(user) && (
               <Button
                 variant="light"
+                size="sm"
                 onClick={() => onPasswordReset(user)}
                 title="Reset Password"
               >
@@ -280,6 +286,7 @@ const UserRow = memo(function UserRow({
             {!isProtected && (
               <Button
                 variant="outline-danger"
+                size="sm"
                 onClick={() => onDeleteUser(user)}
                 title="Delete User"
                 disabled={actionLoading === `delete-${user.name}`}
@@ -291,7 +298,7 @@ const UserRow = memo(function UserRow({
                 )}
               </Button>
             )}
-          </ButtonGroup>
+          </div>
         </td>
       </tr>
       {/* Expanded User Details */}
@@ -911,7 +918,7 @@ export function UserList() {
       </div>
 
       {/* User Table */}
-      <Table striped hover responsive>
+      <Table striped hover responsive style={{ minWidth: '900px' }}>
         <thead>
           <tr>
             <th style={{ width: '30px' }}></th>
