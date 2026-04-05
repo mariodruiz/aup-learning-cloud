@@ -18,7 +18,7 @@
 // SOFTWARE.
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { Table, Button, Form, InputGroup, Badge, Spinner, Alert, ButtonGroup, Modal } from 'react-bootstrap';
+import { Table, Button, Form, InputGroup, Badge, Spinner, Alert, ButtonGroup, Modal, Dropdown } from 'react-bootstrap';
 import type { User, UserQuota, Server } from '@auplc/shared';
 import * as api from '@auplc/shared';
 import { isGitHubUser, isNativeUser as isNativeUsername } from '@auplc/shared';
@@ -214,14 +214,13 @@ const UserRow = memo(function UserRow({
         <td>{getServerStatusBadge(user)}</td>
         <td>{formatDate(user.last_activity)}</td>
         <td>
-          <div className="d-flex flex-wrap gap-1">
+          <div className="d-flex align-items-center gap-1">
             {user.server ? (
               <Button
                 variant="dark"
                 size="sm"
                 onClick={() => onStopServer(user)}
                 disabled={actionLoading === `stop-${user.name}`}
-                title="Stop Server"
               >
                 {actionLoading === `stop-${user.name}` ? (
                   <Spinner animation="border" size="sm" />
@@ -235,7 +234,6 @@ const UserRow = memo(function UserRow({
                 size="sm"
                 onClick={() => onStartServer(user)}
                 disabled={actionLoading === `start-${user.name}` || !!user.pending}
-                title="Start Server"
               >
                 {actionLoading === `start-${user.name}` ? (
                   <Spinner animation="border" size="sm" />
@@ -244,60 +242,39 @@ const UserRow = memo(function UserRow({
                 )}
               </Button>
             )}
-
-            <Button
-              variant="light"
-              size="sm"
-              as="a"
-              href={`${baseUrl}spawn/${user.name}`}
-              title="Spawn Page"
-            >
-              Spawn Page
-            </Button>
-
-            <Button
-              variant="light"
-              size="sm"
-              onClick={() => onEditUser(user)}
-              title="Edit User"
-            >
-              Edit User
-            </Button>
-
-            <Button
-              variant="light"
-              size="sm"
-              onClick={() => onViewUsage(user.name)}
-              title="View Usage"
-            >
-              <i className="bi bi-clock-history"></i> Usage
-            </Button>
-
-            {isNativeUser(user) && (
-              <Button
-                variant="light"
-                size="sm"
-                onClick={() => onPasswordReset(user)}
-                title="Reset Password"
-              >
-                <i className="bi bi-key"></i> Reset PW
-              </Button>
-            )}
-            {!isProtected && (
-              <Button
-                variant="outline-danger"
-                size="sm"
-                onClick={() => onDeleteUser(user)}
-                title="Delete User"
-                disabled={actionLoading === `delete-${user.name}`}
-              >
-                {actionLoading === `delete-${user.name}` ? (
-                  <Spinner animation="border" size="sm" />
-                ) : (
-                  'Delete'
+            <Dropdown>
+              <Dropdown.Toggle variant="light" size="sm" id={`actions-${user.name}`}>
+                <i className="bi bi-three-dots-vertical" />
+              </Dropdown.Toggle>
+              <Dropdown.Menu align="end">
+                <Dropdown.Item href={`${baseUrl}spawn/${user.name}`}>
+                  <i className="bi bi-rocket me-2" />Spawn Page
+                </Dropdown.Item>
+                <Dropdown.Item onClick={() => onEditUser(user)}>
+                  <i className="bi bi-pencil me-2" />Edit User
+                </Dropdown.Item>
+                <Dropdown.Item onClick={() => onViewUsage(user.name)}>
+                  <i className="bi bi-clock-history me-2" />Usage
+                </Dropdown.Item>
+                {isNativeUser(user) && (
+                  <Dropdown.Item onClick={() => onPasswordReset(user)}>
+                    <i className="bi bi-key me-2" />Reset Password
+                  </Dropdown.Item>
                 )}
-              </Button>
-            )}
+                {!isProtected && (
+                  <>
+                    <Dropdown.Divider />
+                    <Dropdown.Item
+                      className="text-danger"
+                      onClick={() => onDeleteUser(user)}
+                      disabled={actionLoading === `delete-${user.name}`}
+                    >
+                      <i className="bi bi-trash me-2" />Delete
+                    </Dropdown.Item>
+                  </>
+                )}
+              </Dropdown.Menu>
+            </Dropdown>
           </div>
         </td>
       </tr>
@@ -918,7 +895,7 @@ export function UserList() {
       </div>
 
       {/* User Table */}
-      <Table striped hover responsive style={{ minWidth: '900px' }}>
+      <Table striped hover responsive>
         <thead>
           <tr>
             <th style={{ width: '30px' }}></th>
