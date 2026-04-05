@@ -39,14 +39,17 @@ export function EditUserModal({ show, user, onHide, onUpdate }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
 
-  // Load available groups when modal opens
+  // Reset state when user changes or modal opens
   useEffect(() => {
     if (show) {
+      setEditMode(false);
+      setNewUsername('');
+      setError(null);
       api.getGroups()
         .then(response => setAvailableGroups(response.groups))
         .catch(err => console.error('Failed to load groups:', err));
     }
-  }, [show]);
+  }, [show, user]);
 
   if (!user) return null;
 
