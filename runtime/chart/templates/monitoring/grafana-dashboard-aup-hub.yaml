@@ -1,4 +1,4 @@
-{{- if and .Values.hub.metrics.enabled .Values.monitoring.grafana.dashboard.enabled }}
+{{- if and .Values.monitoring.enabled .Values.monitoring.hubMetrics.enabled .Values.monitoring.grafana.dashboard.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

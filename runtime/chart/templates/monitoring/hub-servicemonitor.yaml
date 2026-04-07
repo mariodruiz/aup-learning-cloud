@@ -1,4 +1,4 @@
-{{- if and .Values.hub.metrics.enabled .Values.monitoring.servicemonitor.enabled }}
+{{- if and .Values.monitoring.enabled .Values.monitoring.hubMetrics.enabled .Values.monitoring.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -16,5 +16,5 @@ spec:
   endpoints:
     - targetPort: 8081
       path: /hub/metrics
-      interval: {{ .Values.monitoring.servicemonitor.interval }}
+      interval: {{ .Values.monitoring.serviceMonitor.interval }}
 {{- end }}
