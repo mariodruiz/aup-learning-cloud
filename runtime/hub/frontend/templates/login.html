@@ -90,9 +90,7 @@ AUP Learning Cloud
     <div class="w-full md:w-3/5 flex items-center justify-center p-6 md:p-16">
         <div class="w-full max-w-md">
             {% block login_container %}
-            <div id="announcement-box" class="bg-yellow-100 text-yellow-800 border border-yellow-300 p-4 mb-6 rounded hidden">
-                Now loading external announcement...
-            </div>
+            <div id="announcement-box" class="bg-blue-50 text-blue-900 border border-blue-200 p-4 mb-6 rounded-lg hidden"></div>
             
             <script>
                 fetch("/hub/static/announcement.txt")
@@ -101,9 +99,11 @@ AUP Learning Cloud
                         return resp.text();
                     })
                     .then(data => {
-                        const box = document.getElementById("announcement-box");
-                        box.innerHTML = data;
-                        box.classList.remove("hidden");
+                        if (data && data.trim()) {
+                            const box = document.getElementById("announcement-box");
+                            box.innerHTML = data;
+                            box.classList.remove("hidden");
+                        }
                     })
                     .catch(err => {
                         console.warn("External announcement.txt load fail", err);
