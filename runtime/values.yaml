@@ -184,43 +184,31 @@ custom:
     # Define resource quotas for each course
     requirements:
       cpu:
-        cpu: "2"
-        memory: "4Gi"
-        memory_limit: "6Gi"
+        cpu: "0"
+        memory: "0Gi"
       gpu:
-        cpu: "4"
-        memory: "16Gi"
-        memory_limit: "24Gi"
+        cpu: "0"
+        memory: "0Gi"
         amd.com/gpu: "1"
       Course-CV:
-        cpu: "4"
-        memory: "16Gi"
-        memory_limit: "24Gi"
+        cpu: "0"
+        memory: "0Gi"
         amd.com/gpu: "1"
       Course-DL:
-        cpu: "4"
-        memory: "16Gi"
-        memory_limit: "24Gi"
+        cpu: "0"
+        memory: "0Gi"
         amd.com/gpu: "1"
       Course-LLM:
-        cpu: "4"
-        memory: "16Gi"
-        memory_limit: "24Gi"
+        cpu: "0"
+        memory: "0Gi"
         amd.com/gpu: "1"
       Course-PhySim:
-        cpu: "4"
-        memory: "16Gi"
-        memory_limit: "24Gi"
+        cpu: "0"
+        memory: "0Gi"
         amd.com/gpu: "1"
-      # Custom-URL:
-      #   cpu: "4"
-      #   memory: "16Gi"
-      #   memory_limit: "24Gi"
-      #   amd.com/gpu: "1"
       none:
-        cpu: "2"
-        memory: "4Gi"
-        memory_limit: "6Gi"
+        cpu: "0"
+        memory: "0Gi"
 
     # Course Metadata (for spawn UI)
     # Defines display information for each course
@@ -343,23 +331,14 @@ hub:
     # If you want to edit the notice on login.html, change here.
       mountPath: /usr/local/share/jupyterhub/static/announcement.txt
       stringData: |
-          <div class="announcement-box" style="padding: 1em; border: 1px solid #ccc; border-radius: 6px; background-color: #f8f8f8;">
-          <h3>Welcome to AUP Learning Cloud!</h3>
-          <p>This is a <strong>dynamic announcement</strong>.</p>
-          <p>My location is on <code>runtime/values.yaml</code></p>
-          <p>You can edit this via <strong>ConfigMap</strong> without rebuilding the image.</p>
-          </div>
+          Hello, World!
 
   config:
     # ---- Hub Core ----
-    # JupyterHub:
-      # Enable JupyterHub REST API
-      # API Documentation: https://jupyterhub.readthedocs.io/en/stable/reference/rest-api.html
-      # api_tokens:
-      #   Configure API tokens for external services
-      #   Format: token: username
-      #   It's recommended to use environment variables or secrets to manage tokens
-      #   Example: "your-secure-api-token-here": "admin-service"
+    JupyterHub:
+      # Always show Home page first, even when a server is already running.
+      # Users can access their running server via the "My Server" button on Home.
+      redirect_to_server: false
 
     Authenticator:
       allow_all: true

@@ -18,7 +18,6 @@
 // SOFTWARE.
 
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { NavBar } from '../components/NavBar';
 import { Table, Button, Form, InputGroup, Alert, Spinner, Modal, Badge } from 'react-bootstrap';
 import AsyncSelect from 'react-select/async';
 import type { MultiValue, ActionMeta, StylesConfig } from 'react-select';
@@ -222,6 +221,10 @@ const GroupRow = memo(function GroupRow({ group, onEdit, onMembersChange, loadUs
             <Badge bg="secondary" title="Manually managed group">Manual</Badge>
           )}
         </div>
+        <div style={{ fontSize: '0.7rem', color: 'var(--home-text-muted)', marginTop: '2px' }}>
+          {group.users.length} {group.users.length === 1 ? 'member' : 'members'}
+          {(group.resources?.length ?? 0) > 0 && ` · ${group.resources!.length} resources`}
+        </div>
       </td>
       <td>
         <AsyncSelect<UserOption, true>
@@ -417,7 +420,6 @@ export function GroupList() {
 
   return (
     <div>
-      <NavBar />
       {/* Top Controls */}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="d-flex gap-2">

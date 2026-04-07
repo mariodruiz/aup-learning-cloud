@@ -6,7 +6,6 @@ import { Spinner, Alert } from 'react-bootstrap';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { NavBar } from '../components/NavBar';
 import { UserDetailModal } from '../components/UserDetailModal';
 import {
   getDashboardOverview,
@@ -51,6 +50,10 @@ function formatMinutes(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function pluralize(count: number, singular: string, plural?: string): string {
+  return count === 1 ? singular : (plural ?? singular + 's');
+}
+
 function formatResourceLabel(resourceType: string, resourceDisplay?: string | null): string {
   if (resourceDisplay && resourceDisplay !== resourceType) {
     return `${resourceDisplay} (${resourceType})`;
@@ -84,6 +87,15 @@ function StatCard({ title, value, icon, color }: StatCardProps) {
       </div>
     </div>
   );
+}
+
+function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+  const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
@@ -153,8 +165,6 @@ export function Dashboard() {
 
   return (
     <div>
-      <NavBar />
-
       {/* Header row */}
       <div className="tw:flex tw:items-center tw:justify-between tw:mb-6 tw:flex-wrap tw:gap-2">
         <h4 className="text-body tw:font-semibold tw:mb-0">Usage Dashboard</h4>
@@ -175,6 +185,20 @@ export function Dashboard() {
             max={today}
             onChange={e => setEndDate(e.target.value)}
           />
+          <button
+            className="btn btn-outline-secondary btn-sm tw:ml-2"
+            title="Export CSV"
+            onClick={() => {
+              if (dailyUsage.length > 0) {
+                downloadCsv(`usage-${startDate}-${endDate}.csv`,
+                  ['Date', 'Minutes', 'Active Users'],
+                  dailyUsage.map(d => [d.date, String(d.minutes), String(d.users)]));
+              }
+            }}
+            disabled={dailyUsage.length === 0}
+          >
+            <i className="bi bi-download tw:mr-1" /> Export
+          </button>
         </div>
       </div>
 
@@ -415,7 +439,7 @@ export function Dashboard() {
                             {formatResourceLabel(r.resource_type, r.resource_display)}
                           </span>
                           <span className="text-body-secondary tw:text-xs tw:shrink-0 tw:ml-2">
-                            {formatMinutes(r.minutes)} · {r.sessions} sessions · avg {formatMinutes(Math.round(r.avg_minutes))}
+                            {formatMinutes(r.minutes)} · {r.sessions} {pluralize(r.sessions, 'session')} · avg {formatMinutes(Math.round(r.avg_minutes))}
                           </span>
                         </div>
                         <div className="tw:w-full tw:rounded-full tw:h-1.5 bg-body-tertiary">
