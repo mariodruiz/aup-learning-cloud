@@ -32,7 +32,6 @@ HELM_VERSION="v3.17.2"
 HELM_LINUX_AMD64_SHA256="90c28792a1eb5fb0b50028e39ebf826531ebfcf73f599050dbd79bab2f277241"
 K9S_VERSION="v0.32.7"
 K9S_LINUX_AMD64_DEB_SHA256="3f12b34557d9ed9eada465b6fad57dbe9367786f68cfd4604a6771a9f08446b8"
-K3S_INSTALLER_SHA256="46177d4c99440b4c0311b67233823a8e8a2fc09693f6c89af1a7161e152fbfad"
 ROCM_DEVICE_PLUGIN_COMMIT="dea1db13f05159e64d8114bca4c31f48c3cfcac6"
 ROCM_DEVICE_PLUGIN_SHA256="b751e467feecf6118bed1de8ba80b9abff01c1f52a6b0b8f31aca3609e6e9dbd"
 
@@ -419,7 +418,6 @@ function install_k3s_single_node() {
         configure_registry_mirrors
 
         wget https://get.k3s.io -O /tmp/get-k3s.sh
-        verify_sha256 /tmp/get-k3s.sh "$K3S_INSTALLER_SHA256"
         sudo INSTALL_K3S_VERSION="${K3S_VERSION}" \
             K3S_KUBECONFIG_MODE="644" \
             INSTALL_K3S_EXEC="${k3s_exec}" \

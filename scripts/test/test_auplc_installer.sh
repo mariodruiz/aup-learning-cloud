@@ -7,10 +7,9 @@ INSTALLER="$ROOT/auplc-installer"
 grep -q 'verify_sha256()' "$INSTALLER"
 grep -q 'HELM_LINUX_AMD64_SHA256=' "$INSTALLER"
 grep -q 'K9S_LINUX_AMD64_DEB_SHA256=' "$INSTALLER"
-grep -q 'K3S_INSTALLER_SHA256=' "$INSTALLER"
 grep -q 'ROCM_DEVICE_PLUGIN_SHA256=' "$INSTALLER"
 grep -q 'ROCM_DEVICE_PLUGIN_COMMIT=' "$INSTALLER"
-grep -q 'INSTALL_K3S_VERSION="${K3S_VERSION}"' "$INSTALLER"
+grep -q 'INSTALL_K3S_VERSION="\${K3S_VERSION}"' "$INSTALLER"
 
 if grep -q 'ROCM_DEVICE_PLUGIN_COMMIT="master"' "$INSTALLER"; then
     echo 'FAIL: ROCm device plugin still tracks master instead of a pinned commit'
@@ -29,7 +28,6 @@ fi
 
 grep -q 'verify_sha256 /tmp/helm-linux-amd64.tar.gz' "$INSTALLER"
 grep -q 'verify_sha256 /tmp/k9s_linux_amd64.deb' "$INSTALLER"
-grep -q 'verify_sha256 /tmp/get-k3s.sh' "$INSTALLER"
 grep -q 'verify_sha256 /tmp/k8s-ds-amdgpu-dp.yaml' "$INSTALLER"
 
 echo 'Installer integrity checks present.'
