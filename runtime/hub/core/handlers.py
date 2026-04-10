@@ -34,6 +34,8 @@ import json
 from typing import Any
 from urllib.parse import urlencode, urlparse, urlunparse
 
+from core.git_validation import validate_and_sanitize_repo_url
+
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.handlers import BaseHandler
 from multiauthenticator import MultiAuthenticator
@@ -921,17 +923,11 @@ class GitSpawnHandler(BaseHandler):
         config = HubConfig.get()
         allowed_providers = list(config.git_clone.allowedProviders)
 
-        repo_url = f"https://{repo_path.rstrip('/')}"
-
-        try:
-            parsed = urlparse(repo_url)
-            hostname = parsed.netloc.lower()
-        except Exception as e:
-            raise web.HTTPError(400, "Invalid repository URL") from e
-
-        is_allowed = any(hostname == p or hostname.endswith("." + p) for p in allowed_providers)
-        if not is_allowed:
-            raise web.HTTPError(403, f"Repository host '{hostname}' is not allowed")
+        is_valid, error, repo_url = validate_and_sanitize_repo_url(repo_path.rstrip("/"), allowed_providers)
+        if not is_valid:
+            if "not authorized" in error:
+                raise web.HTTPError(403, error)
+            raise web.HTTPError(400, error)
 
         params: list[tuple[str, str]] = [("repo_url", repo_url)]
         if self.get_argument("autostart", ""):
@@ -1064,7 +1060,14 @@ class ValidateRepoHandler(APIHandler):
 
     @web.authenticated
     async def post(self):
-        body = json.loads(self.request.body)
+        try:
+            body = json.loads(self.request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.set_header("Content-Type", "application/json")
+            self.finish(json.dumps({"error": "Invalid JSON"}))
+            return
+
         url = (body.get("url") or "").strip()
         branch = (body.get("branch") or "").strip()
 
@@ -1086,7 +1089,11 @@ class ValidateRepoHandler(APIHandler):
 
         result = {"valid": False, "error": "URL is required"}
         if url:
-            result = await self._validate(url, branch, access_token)
+            is_valid, error, sanitized_url = validate_and_sanitize_repo_url(url, list(config.git_clone.allowedProviders))
+            if not is_valid:
+                result = {"valid": False, "error": error}
+            else:
+                result = await self._validate(sanitized_url, branch, access_token)
         self.set_header("Content-Type", "application/json")
         self.finish(json.dumps(result))
 
