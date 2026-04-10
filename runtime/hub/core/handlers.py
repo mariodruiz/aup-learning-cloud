@@ -34,8 +34,6 @@ import json
 from typing import Any
 from urllib.parse import urlencode, urlparse, urlunparse
 
-from core.git_validation import validate_and_sanitize_repo_url
-
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.handlers import BaseHandler
 from multiauthenticator import MultiAuthenticator
@@ -43,6 +41,7 @@ from pydantic import ValidationError
 from tornado import web
 
 from core.authenticators import CustomFirstUseAuthenticator
+from core.git_validation import validate_and_sanitize_repo_url
 from core.quota import (
     BatchQuotaRequest,
     QuotaAction,
