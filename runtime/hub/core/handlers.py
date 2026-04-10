@@ -1088,7 +1088,9 @@ class ValidateRepoHandler(APIHandler):
 
         result = {"valid": False, "error": "URL is required"}
         if url:
-            is_valid, error, sanitized_url = validate_and_sanitize_repo_url(url, list(config.git_clone.allowedProviders))
+            is_valid, error, sanitized_url = validate_and_sanitize_repo_url(
+                url, list(config.git_clone.allowedProviders)
+            )
             if not is_valid:
                 result = {"valid": False, "error": error}
             else:

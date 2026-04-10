@@ -112,7 +112,13 @@ def test_validate_repo_url_rejects_disallowed_host():
 
 
 def test_validate_repo_post_returns_400_for_invalid_json(monkeypatch):
-    monkeypatch.setitem(sys.modules, "core.config", types.SimpleNamespace(HubConfig=type("HubConfig", (), {"get": staticmethod(lambda: DummyConfig(["github.com"]))})))
+    monkeypatch.setitem(
+        sys.modules,
+        "core.config",
+        types.SimpleNamespace(
+            HubConfig=type("HubConfig", (), {"get": staticmethod(lambda: DummyConfig(["github.com"]))})
+        ),
+    )
 
     handler = object.__new__(ValidateRepoHandler)
     handler.request = types.SimpleNamespace(body=b"{not-json")
@@ -124,6 +130,7 @@ def test_validate_repo_post_returns_400_for_invalid_json(monkeypatch):
     handler.finish = lambda payload: captured.setdefault("body", payload)
 
     import asyncio
+
     asyncio.run(handler.post())
 
     assert captured["status"] == 400
@@ -132,10 +139,18 @@ def test_validate_repo_post_returns_400_for_invalid_json(monkeypatch):
 
 
 def test_validate_repo_post_rejects_disallowed_provider_before_remote_call(monkeypatch):
-    monkeypatch.setitem(sys.modules, "core.config", types.SimpleNamespace(HubConfig=type("HubConfig", (), {"get": staticmethod(lambda: DummyConfig(["github.com"]))})))
+    monkeypatch.setitem(
+        sys.modules,
+        "core.config",
+        types.SimpleNamespace(
+            HubConfig=type("HubConfig", (), {"get": staticmethod(lambda: DummyConfig(["github.com"]))})
+        ),
+    )
 
     handler = object.__new__(ValidateRepoHandler)
-    handler.request = types.SimpleNamespace(body=json.dumps({"url": "https://evil.example.com/org/repo", "branch": "main"}).encode("utf-8"))
+    handler.request = types.SimpleNamespace(
+        body=json.dumps({"url": "https://evil.example.com/org/repo", "branch": "main"}).encode("utf-8")
+    )
     handler.current_user = DummyUser()
 
     called = {"value": False}
@@ -150,6 +165,7 @@ def test_validate_repo_post_rejects_disallowed_provider_before_remote_call(monke
     handler.finish = lambda payload: result.setdefault("payload", payload)
 
     import asyncio
+
     asyncio.run(handler.post())
 
     assert called["value"] is False
