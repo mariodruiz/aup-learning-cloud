@@ -38,12 +38,14 @@ COPY runtime/hub/frontend/pnpm-workspace.yaml runtime/hub/frontend/pnpm-lock.yam
 
 # Copy package.json files for dependency installation
 COPY runtime/hub/frontend/packages/shared/package.json ./packages/shared/
+COPY runtime/hub/frontend/packages/mathml2omml/package.json ./packages/mathml2omml/
 COPY runtime/hub/frontend/apps/admin/package.json ./apps/admin/
 COPY runtime/hub/frontend/apps/spawn/package.json ./apps/spawn/
 COPY runtime/hub/frontend/apps/home/package.json ./apps/home/
+COPY runtime/hub/frontend/apps/classroom/package.json ./apps/classroom/
 
-# Install dependencies with frozen lockfile
-RUN pnpm install --frozen-lockfile
+# Install dependencies (no frozen lockfile — classroom app is new)
+RUN pnpm install
 
 # Copy source code
 COPY runtime/hub/frontend/packages/ ./packages/
@@ -62,15 +64,18 @@ USER root
 RUN mkdir -p /tmp/custom_templates/static/css /tmp/custom_templates/static/js \
     /usr/local/share/jupyterhub/static/admin-ui \
     /usr/local/share/jupyterhub/static/spawn-ui \
-    /usr/local/share/jupyterhub/static/home-ui
+    /usr/local/share/jupyterhub/static/home-ui \
+    /usr/local/share/jupyterhub/static/classroom-ui
 
 COPY --chmod=644 runtime/hub/frontend/templates/ /tmp/custom_templates/
 COPY --from=frontend-builder /app/apps/admin/dist/ /usr/local/share/jupyterhub/static/admin-ui/
 COPY --from=frontend-builder /app/apps/spawn/dist/ /usr/local/share/jupyterhub/static/spawn-ui/
 COPY --from=frontend-builder /app/apps/home/dist/ /usr/local/share/jupyterhub/static/home-ui/
+COPY --from=frontend-builder /app/apps/classroom/dist/ /usr/local/share/jupyterhub/static/classroom-ui/
 RUN chown -R 1000:1000 /usr/local/share/jupyterhub/static/admin-ui/ \
     /usr/local/share/jupyterhub/static/spawn-ui/ \
-    /usr/local/share/jupyterhub/static/home-ui/
+    /usr/local/share/jupyterhub/static/home-ui/ \
+    /usr/local/share/jupyterhub/static/classroom-ui/
 
 # Backend: Python dependencies and core logic
 RUN pip install --no-cache-dir uv

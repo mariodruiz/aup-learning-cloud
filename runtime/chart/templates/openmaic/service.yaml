@@ -1,0 +1,18 @@
+{{- if .Values.custom.openmaic.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: openmaic-svc
+  labels:
+    app: openmaic
+    component: openmaic
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: openmaic
+{{- end }}

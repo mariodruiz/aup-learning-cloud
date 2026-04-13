@@ -43,6 +43,28 @@
 # ============================================================================
 
 custom:
+  # ============================================================================
+  # OpenMAIC AI Classroom Plugin
+  # ============================================================================
+  # When enabled, deploys OpenMAIC as a sidecar service and adds a dual-mode
+  # switcher (Code Lab / OpenMAIC) to the home page.
+  openmaic:
+    enabled: true
+    image: "ghcr.io/kerwintsa3/openmaic:auplc-latest"
+    replicas: 1
+    imagePullPolicy: Never
+    env:
+      DEFAULT_MODEL: "google:gemini-2.5-flash"
+    secretEnv:
+      GOOGLE_API_KEY: openmaic-secrets
+    # resources:
+    #   requests:
+    #     cpu: "500m"
+    #     memory: "512Mi"
+    #   limits:
+    #     cpu: "2"
+    #     memory: "2Gi"
+
   # Authentication mode
   # - auto-login: No credentials required, auto-login as 'student' (for single-node dev)
   # - dummy: Accept any username/password (for testing)
@@ -317,8 +339,13 @@ hub:
       storageClassName: local-path
   image:
     name: ghcr.io/amdresearch/auplc-hub
-    tag: latest
-    pullPolicy: IfNotPresent
+    tag: openmaic-dev
+    pullPolicy: Never
+
+  services:
+    openmaic:
+      url: http://openmaic-svc:3000
+      oauth_no_confirm: true
 
   # Additional Python config snippets (executed after core/setup.py)
   # Example:

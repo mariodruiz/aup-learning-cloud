@@ -1,0 +1,82 @@
+{{- if .Values.custom.openmaic.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openmaic
+  labels:
+    app: openmaic
+    component: openmaic
+    app.kubernetes.io/name: openmaic
+    app.kubernetes.io/component: openmaic
+spec:
+  replicas: {{ .Values.custom.openmaic.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: openmaic
+  template:
+    metadata:
+      labels:
+        app: openmaic
+        hub.jupyter.org/network-access-hub: "true"
+    spec:
+      containers:
+        - name: openmaic
+          image: {{ .Values.custom.openmaic.image | quote }}
+          imagePullPolicy: {{ .Values.custom.openmaic.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "3000"
+            - name: HOSTNAME
+              value: "0.0.0.0"
+            - name: JUPYTERHUB_API_URL
+              value: "http://hub:8081/hub/api"
+            - name: JUPYTERHUB_BASE_URL
+              value: "/hub/"
+            - name: OPENMAIC_BASE_PATH
+              value: "/services/openmaic"
+            - name: JUPYTERHUB_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hub
+                  key: hub.services.openmaic.apiToken
+            {{- range $key, $value := .Values.custom.openmaic.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.custom.openmaic.secretEnv }}
+            {{- range $envName, $secretName := .Values.custom.openmaic.secretEnv }}
+            - name: {{ $envName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: {{ $envName }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- if .Values.custom.openmaic.resources }}
+            {{- toYaml .Values.custom.openmaic.resources | nindent 12 }}
+            {{- else }}
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /services/openmaic/
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /services/openmaic/
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+{{- end }}

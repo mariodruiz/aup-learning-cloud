@@ -329,6 +329,16 @@ class AdminUIHandler(BaseHandler):
         self.finish(html)
 
 
+class ClassroomUIHandler(BaseHandler):
+    """Serve the AI Classroom UI (React app)."""
+
+    @web.authenticated
+    async def get(self):
+        """Serve classroom UI page."""
+        html = await self.render_template("classroom.html")
+        self.finish(html)
+
+
 class AdminAPISetPasswordHandler(APIHandler):
     """API endpoint for setting user passwords."""
 
@@ -1517,6 +1527,8 @@ def get_handlers() -> list[tuple[str, type]]:
         (r"/admin/api/stats/user/([^/]+)", StatsUserHandler),
         # Dashboard UI
         (r"/admin/dashboard", AdminUIHandler),
+        # AI Classroom UI
+        (r"/classroom", ClassroomUIHandler),
     ]
 
 

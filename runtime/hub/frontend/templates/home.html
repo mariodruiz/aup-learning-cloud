@@ -7,10 +7,21 @@
 
 {% block stylesheet %}
 {{ super() }}
+{% if not (openmaic_enabled is defined and openmaic_enabled) %}
 <link rel="stylesheet" href="{{ static_url('home-ui/assets/index.css') }}" />
+{% endif %}
 {% endblock %}
 
 {% block main %}
+{% if openmaic_enabled is defined and openmaic_enabled %}
+{# OpenMAIC is enabled — redirect to the AI Classroom React app #}
+<script>window.location.replace('{{ base_url }}classroom');</script>
+<noscript>
+  <meta http-equiv="refresh" content="0;url={{ base_url }}classroom">
+  <p>Redirecting to <a href="{{ base_url }}classroom">AI Classroom</a>...</p>
+</noscript>
+{% else %}
+{# OpenMAIC disabled — show the original AUPLC Vite home page #}
 <div id="home-root"></div>
 <script>
   window.jhdata = {
@@ -24,6 +35,7 @@
   };
 </script>
 <script type="module" src="{{ static_url('home-ui/assets/index.js') }}"></script>
+{% endif %}
 {% endblock %}
 
 {% block script %}

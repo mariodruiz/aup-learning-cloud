@@ -1,0 +1,43 @@
+{% extends "page.html" %}
+
+{%- block title -%}AI Classroom - AUP Learning Cloud{%- endblock title -%}
+
+{% block stylesheet %}
+{{ super() }}
+<link rel="stylesheet" href="{{ static_url('classroom-ui/assets/index.css') }}" />
+<style>
+  /* Tailwind utility .collapse { visibility: collapse } conflicts with Bootstrap .collapse.navbar-collapse */
+  .navbar-collapse { visibility: visible !important; }
+</style>
+{% endblock %}
+
+{% block main %}
+<div id="root" style="min-height: 100vh;"></div>
+<script>
+  // Sync .dark class with JupyterHub's data-bs-theme BEFORE React loads
+  (function() {
+    var bs = document.documentElement.getAttribute('data-bs-theme');
+    var ls = localStorage.getItem('auplc-theme') || localStorage.getItem('jupyterhub-bs-theme');
+    var isDark = bs === 'dark' || ls === 'dark';
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-bs-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  })();
+
+  window.jhdata = {
+    base_url: '{{ base_url }}',
+    xsrf_token: '{{ xsrf_token }}',
+    user: '{{ user.name }}',
+    admin: {{ 'true' if user.admin else 'false' }}
+  };
+  window.OPENMAIC_API_URL = '{{ openmaic_base_url | default("/services/openmaic", true) }}';
+</script>
+<script type="module" src="{{ static_url('classroom-ui/assets/index.js') }}"></script>
+{% endblock %}
+
+{% block script %}
+{{ super() }}
+{% endblock %}

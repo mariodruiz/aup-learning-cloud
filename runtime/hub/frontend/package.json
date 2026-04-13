@@ -12,6 +12,8 @@
     "build:admin": "pnpm --filter @auplc/admin run build",
     "build:spawn": "pnpm --filter @auplc/spawn run build",
     "build:home": "pnpm --filter @auplc/home run build",
+    "dev:classroom": "pnpm --filter @auplc/classroom run dev",
+    "build:classroom": "pnpm --filter @auplc/classroom run build",
     "lint": "pnpm -r run lint",
     "clean": "pnpm -r exec rm -rf dist node_modules"
   },

@@ -367,10 +367,16 @@ def setup_hub(c: Any) -> None:
     # Template Vars
     # =========================================================================
 
+    from core import z2jh
+
+    openmaic_enabled = z2jh.get_config("custom.openmaic.enabled", False)
+
     if not isinstance(c.JupyterHub.template_vars, dict):
         c.JupyterHub.template_vars = {}
     c.JupyterHub.template_vars["authenticator_mode"] = config.auth_mode  # type: ignore[assignment]
     c.JupyterHub.template_vars["hide_logout"] = config.auth_mode == "auto-login"  # type: ignore[assignment]
+    c.JupyterHub.template_vars["openmaic_enabled"] = openmaic_enabled  # type: ignore[assignment]
+    c.JupyterHub.template_vars["openmaic_base_url"] = "/services/openmaic" if openmaic_enabled else ""  # type: ignore[assignment]
 
-    print(f"[SETUP] Hub setup complete: auth_mode={config.auth_mode}")
+    print(f"[SETUP] Hub setup complete: auth_mode={config.auth_mode}, openmaic={openmaic_enabled}")
     print(f"[SETUP] template_vars: {c.JupyterHub.template_vars}")
