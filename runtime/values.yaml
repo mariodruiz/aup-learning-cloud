@@ -50,9 +50,9 @@ custom:
   # switcher (Code Lab / OpenMAIC) to the home page.
   openmaic:
     enabled: true
-    image: "ghcr.io/kerwintsa3/openmaic:auplc-latest"
+    image: "ghcr.io/kerwintsaiii/openmaic:auplc-latest"
     replicas: 1
-    imagePullPolicy: Never
+    imagePullPolicy: IfNotPresent
     env:
       DEFAULT_MODEL: "google:gemini-2.5-flash"
     secretEnv:
