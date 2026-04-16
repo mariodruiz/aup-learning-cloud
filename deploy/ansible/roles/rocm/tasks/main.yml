@@ -53,3 +53,24 @@
   apt:
     name: rocm
     state: present
+
+- name: Ensure render group exists with consistent GID
+  group:
+    name: render
+    gid: 993
+    state: present
+
+- name: Set udev rules for ROCm devices with correct permissions
+  copy:
+    content: |
+      # ROCm device permissions
+      # Ensure /dev/kfd and /dev/dri/renderD* are accessible by render group
+      SUBSYSTEM=="kfd", GROUP="render", MODE="0660"
+      SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="0660"
+    dest: /etc/udev/rules.d/70-rocm-devices.rules
+    mode: '0644'
+  notify: Reload udev rules
+
+- name: Reload udev rules
+  shell: udevadm control --reload-rules && udevadm trigger
+  changed_when: false

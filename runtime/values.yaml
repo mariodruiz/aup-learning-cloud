@@ -383,6 +383,15 @@ monitoring:
     enabled: false
 
 singleuser:
+  # Security context for user pods to access GPU devices
+  # supplementalGroups grants container access to host's render group (GID 993)
+  # This allows non-root users to access /dev/kfd and /dev/dri devices
+  extraPodConfig:
+    securityContext:
+      fsGroup: 100
+      supplementalGroups:
+        - 993  # render group for ROCm GPU access
+  
   storage:
     dynamic:
       storageClass: local-path
