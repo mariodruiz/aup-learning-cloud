@@ -294,6 +294,13 @@ custom:
         - Course-PhySim
         - cpu
         - gpu
+      github-users:
+        - cpu
+        - gpu
+        - Course-CV
+        - Course-DL
+        - Course-LLM
+        - Course-PhySim
 
   # ============================================================================
   # Quota Management

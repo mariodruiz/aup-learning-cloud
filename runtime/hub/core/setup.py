@@ -102,7 +102,7 @@ def setup_hub(c: Any) -> None:
     # Ensure system-managed groups exist at startup (before any user logs in).
     # Note: load_groups does NOT set properties on existing groups, so the
     # source=system backfill is handled lazily in the admin groups API handler.
-    c.JupyterHub.load_groups = {"native-users": []}
+    c.JupyterHub.load_groups = {"native-users": [], "github-users": []}
 
     # =========================================================================
     # Configure Authenticator
@@ -149,6 +149,14 @@ def setup_hub(c: Any) -> None:
                     await spawner.user.save_auth_state(auth_state)
                 except Exception as e:
                     print(f"[GROUPS] Warning: Failed to sync GitHub teams for {spawner.user.name}: {e}")
+
+            # Assign all GitHub users to default group (fallback for users without teams)
+            try:
+                from core.groups import assign_user_to_group
+
+                assign_user_to_group(spawner.user, "github-users", spawner.user.db)
+            except Exception as e:
+                print(f"[GROUPS] Warning: Failed to assign github-users group for {spawner.user.name}: {e}")
         elif not spawner.user.name.startswith("github:"):
             # Native user with auth_state but no GitHub teams
             try:
