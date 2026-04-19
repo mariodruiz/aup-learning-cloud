@@ -176,8 +176,8 @@ function resolve_gpu_config() {
             ;;
         gfx1150|strix)
             ACCEL_KEY="strix"
-            GPU_TARGET="gfx110x"
-            ACCEL_ENV="11.0.0"
+            GPU_TARGET="gfx1150"
+            ACCEL_ENV=""
             ;;
         gfx1151|strix-halo)
             ACCEL_KEY="strix-halo"
