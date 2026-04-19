@@ -43,8 +43,10 @@ ARG ROCM_VERSION=7.11.0
 ARG PYTORCH_VERSION=2.9.1
 ARG TORCHVISION_VERSION=0.24.0
 ARG TORCHAUDIO_VERSION=2.9.0
-# PyTorch wheel target — may differ from GPU_TARGET (e.g. gfx110x → gfx110X-all)
-# See https://repo.amd.com/rocm/whl/ for available targets
+# PyTorch wheel target — only differs from GPU_TARGET for the generic
+# buckets (gfx110x → gfx110X-all, gfx120x → gfx120X-all). Specific targets
+# like gfx1150/gfx1151/gfx1152 use the same name in both apt and wheel repos.
+# See https://repo.amd.com/rocm/whl/ for available targets.
 ARG PYTORCH_WHL_TARGET=
 ARG PYTORCH_INDEX_URL=
 
