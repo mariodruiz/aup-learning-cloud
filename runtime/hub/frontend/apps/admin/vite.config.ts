@@ -24,7 +24,9 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss()],
-  // Base path for JupyterHub static files
+  // Dev keeps Vite's default root-style asset paths.
+  // Build uses a relative base so follow-on chunks/assets resolve from the
+  // runtime script URL injected by JupyterHub templates via static_url(...).
   base: command === 'build' ? './' : '/',
   build: {
     outDir: 'dist',
