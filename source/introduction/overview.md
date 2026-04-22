@@ -15,17 +15,16 @@ AUP Learning Cloud provides a multi-user Jupyter notebook environment optimized 
 
 ### Hardware Acceleration
 
-- **AMD GPU**: Leverage ROCm for high-performance deep learning and AI workloads
-- **AMD NPU**: Utilize Ryzen™ AI for efficient neural processing unit tasks
+- **AMD GPU**: Leverage ROCm on AMD Ryzen™ AI iGPUs (Strix Halo, Strix) and AMD Radeon™ RDNA 4 discrete GPUs (RX 9070 XT, AI Pro R9700) for high-performance deep learning and AI workloads
 - **AMD CPU**: Support for general-purpose CPU-based computations
 
 ### Flexible Deployment
 
-Kubernetes provides a robust infrastructure for deploying and managing JupyterHub. We support both single-node and multi-node K3s cluster deployments.
+Kubernetes provides a robust infrastructure for deploying and managing JupyterHub. We support both single-node and multi-node K3s cluster deployments, and produce offline install bundles for air-gapped environments.
 
 ### Custom URL Launcher
 
-We provide a basic **ROCm + PyTorch** environment; you can clone your own Git repository into this environment at server start (via URL and branch or by selecting a repo from your GitHub account). Your code is then available in the workspace so you can run it immediately.
+We provide a basic **ROCm + PyTorch** environment; you can clone your own Git repository into this environment at server start (via URL and branch or by selecting a repo from your GitHub account). Private repositories are supported via a GitHub App or a pre-configured default access token. Your code is then available in the workspace so you can run it immediately.
 
 ### Authentication
 
@@ -33,11 +32,20 @@ Seamless integration with GitHub Single Sign-On (SSO) and Native Authenticator f
 
 - **Auto-admin on install**: Initial admin created automatically with random password
 - **Dual login**: GitHub OAuth + Native accounts on single login page
+- **GitHub Teams → Groups sync**: GitHub team membership is mapped to JupyterHub groups for resource access control
 - **Batch user management**: CSV/Excel-based bulk operations via scripts
+
+### Admin Dashboard
+
+A dedicated React-based admin dashboard (under `/hub/admin/`) provides user/group management and a live usage view — daily active users, active sessions (via Server-Sent Events), pending spawns, idle-session warnings, and course/accelerator usage breakdowns. Quotas can be applied and reset in batch.
+
+### Observability
+
+Optional Prometheus + Grafana integration exposes Hub and single-user metrics. Two preset Grafana dashboards ship with the chart (`grafana-dashboard-aup-hub-ops.json`, `grafana-dashboard-aup-hub-resources.json`).
 
 ### Storage Management and Security
 
-Dynamic NFS provisioning ensures scalable and persistent storage for user data, while end-to-end TLS encryption with automated certificate management guarantees secure and reliable communication.
+Dynamic NFS provisioning ensures scalable and persistent storage for user data, while Traefik ingress with automated TLS certificate management guarantees secure and reliable communication.
 
 ## Learning Solutions
 
@@ -53,7 +61,7 @@ AUP Learning Cloud offers the following Learning Toolkits:
 | Environment | Image | Hardware |
 |------------|-------|----------|
 | Base CPU | `ghcr.io/amdresearch/auplc-default` | CPU |
-| Basic GPU | `ghcr.io/amdresearch/auplc-gpu` | GPU |
+| GPU Base | `ghcr.io/amdresearch/auplc-base` | GPU |
 | CV Course | `ghcr.io/amdresearch/auplc-cv` | GPU |
 | DL Course | `ghcr.io/amdresearch/auplc-dl` | GPU |
 | LLM Course | `ghcr.io/amdresearch/auplc-llm` | GPU |

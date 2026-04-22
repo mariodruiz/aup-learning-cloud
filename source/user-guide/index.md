@@ -16,8 +16,8 @@ admin-manual
 
 End-user topics are summarized in **Quick Links** below. For login and authentication, see the [Authentication Guide](../jupyterhub/authentication-guide.md). Your administrator can provide the JupyterHub URL; once logged in you can:
 
-- Launch notebook environments (Base CPU, CV/DL/LLM courses)
-- Use hardware acceleration options (CPU, GPU, NPU) as allowed for your account
+- Launch notebook environments (Base CPU, GPU Base, CV/DL/LLM/PhySim courses)
+- Use hardware acceleration options (CPU, GPU) as allowed for your account
 - Manage your workspace and files in JupyterLab
 - Stop your server when finished to free resources
 
@@ -38,9 +38,11 @@ Detailed end-user documentation may be expanded in future releases; contact your
 When starting your server, you can choose from:
 
 - **Base CPU**: General-purpose computing
+- **GPU Base**: Basic ROCm + PyTorch environment with Git Repo cloning
 - **CV Course**: Computer Vision with GPU acceleration
 - **DL Course**: Deep Learning with GPU acceleration
 - **LLM Course**: Large Language Model development with GPU acceleration
+- **PhySim Course**: Genesis-based physical simulation with GPU acceleration
 
 ### Getting Help
 
