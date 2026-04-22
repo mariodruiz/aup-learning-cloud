@@ -93,7 +93,7 @@ AUP Learning Cloud
             <div id="announcement-box" class="bg-blue-50 text-blue-900 border border-blue-200 p-4 mb-6 rounded-lg hidden"></div>
             
             <script>
-                fetch("/hub/static/announcement.txt")
+                fetch("{{ static_url('announcement.txt') }}")
                     .then(resp => {
                         if (!resp.ok) throw new Error("Not found");
                         return resp.text();

@@ -15,6 +15,6 @@ spec:
       component: hub
   endpoints:
     - targetPort: 8081
-      path: /hub/metrics
+      path: {{ .Values.hub.baseUrl | trimSuffix "/" }}/hub/metrics
       interval: {{ .Values.monitoring.serviceMonitor.interval }}
 {{- end }}
