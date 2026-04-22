@@ -22,10 +22,10 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss()],
   // Base path for JupyterHub static files
-  base: '/hub/static/admin-ui/',
+  base: command === 'build' ? './' : '/',
   build: {
     outDir: 'dist',
     // Generate assets with consistent names for easier integration
@@ -37,4 +37,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))
