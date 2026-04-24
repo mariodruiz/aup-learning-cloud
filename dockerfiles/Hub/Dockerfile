@@ -19,7 +19,7 @@
 
 # Global build arguments
 ARG NODE_IMAGE=node:20-alpine
-ARG HUB_IMAGE=quay.io/jupyterhub/k8s-hub:4.1.0
+ARG HUB_IMAGE=quay.io/jupyterhub/k8s-hub:4.3.3
 ARG NPM_REGISTRY=
 ARG PIP_INDEX_URL=
 
