@@ -28,7 +28,7 @@ GPU_BASE_IMAGE ?= ghcr.io/amdresearch/auplc-base:latest
 BUILD_ARGS :=
 ifneq ($(MIRROR_PREFIX),)
   BUILD_ARGS += --build-arg NODE_IMAGE=$(MIRROR_PREFIX)/docker.io/library/node:20-alpine
-  BUILD_ARGS += --build-arg HUB_IMAGE=$(MIRROR_PREFIX)/quay.io/jupyterhub/k8s-hub:4.1.0
+  BUILD_ARGS += --build-arg HUB_IMAGE=$(MIRROR_PREFIX)/quay.io/jupyterhub/k8s-hub:4.3.3
 endif
 ifneq ($(MIRROR_PIP),)
   BUILD_ARGS += --build-arg PIP_INDEX_URL=$(MIRROR_PIP)
@@ -76,7 +76,7 @@ hub:
 		echo "-------------------------------------------";
 
 	cd Hub && NODE_IMAGE="$(if $(MIRROR_PREFIX),$(MIRROR_PREFIX)/docker.io/library/node:20-alpine,)" \
-		HUB_IMAGE="$(if $(MIRROR_PREFIX),$(MIRROR_PREFIX)/quay.io/jupyterhub/k8s-hub:4.1.0,)" \
+		HUB_IMAGE="$(if $(MIRROR_PREFIX),$(MIRROR_PREFIX)/quay.io/jupyterhub/k8s-hub:4.3.3,)" \
 		PIP_INDEX_URL="$(MIRROR_PIP)" \
 		NPM_REGISTRY="$(MIRROR_NPM)" \
 		bash ./build.sh

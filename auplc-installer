@@ -64,14 +64,14 @@ PLAIN_CUSTOM_NAMES=("auplc-hub" "auplc-default")
 
 # External images required by JupyterHub at runtime
 EXTERNAL_IMAGES=(
-    "quay.io/jupyterhub/k8s-hub:4.1.0"
-    "quay.io/jupyterhub/configurable-http-proxy:4.6.3"
-    "quay.io/jupyterhub/k8s-secret-sync:4.1.0"
-    "quay.io/jupyterhub/k8s-network-tools:4.1.0"
-    "quay.io/jupyterhub/k8s-image-awaiter:4.1.0"
-    "quay.io/jupyterhub/k8s-singleuser-sample:4.1.0"
-    "registry.k8s.io/kube-scheduler:v1.30.8"
-    "registry.k8s.io/pause:3.10"
+    "quay.io/jupyterhub/k8s-hub:4.3.3"
+    "quay.io/jupyterhub/configurable-http-proxy:5.2.0"
+    "quay.io/jupyterhub/k8s-secret-sync:4.3.3"
+    "quay.io/jupyterhub/k8s-network-tools:4.3.3"
+    "quay.io/jupyterhub/k8s-image-awaiter:4.3.3"
+    "quay.io/jupyterhub/k8s-singleuser-sample:4.3.3"
+    "registry.k8s.io/kube-scheduler:v1.30.14"
+    "registry.k8s.io/pause:3.10.1"
     # traefik is already included in the K3s airgap images bundle
     "curlimages/curl:8.5.0"
     "alpine/git:2.47.2"

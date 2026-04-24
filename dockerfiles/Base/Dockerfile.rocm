@@ -144,12 +144,14 @@ RUN WHL_TARGET="${PYTORCH_WHL_TARGET}" && \
     fi
 
 # Install JupyterHub and related packages
+# jupyterhub must match the Hub image version to ensure singleuser <-> hub
+# protocol compatibility. See runtime/chart/Chart.yaml appVersion.
 RUN pip3 install --no-cache-dir \
-    jupyterhub==4.0.2 \
+    jupyterhub==5.4.4 \
     jupyterlab==4.5.6 \
     notebook==7.5.5 \
-    ipywidgets==8.1.1 \
-    ipykernel==6.27.1 \
+    ipywidgets==8.1.8 \
+    ipykernel==6.31.0 \
     matplotlib \
     uv \
     seaborn \
