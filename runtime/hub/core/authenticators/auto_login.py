@@ -57,9 +57,16 @@ class AutoLoginAuthenticator(Authenticator):
 
                 self.set_login_cookie(user)
 
-                next_url = self.get_argument("next", "")
-                if not next_url:
-                    next_url = url_path_join(self.hub.base_url, "home")
+                # Resolve the post-login destination via BaseHandler.get_next_url
+                # so the value goes through JupyterHub's _validate_next_url,
+                # which rejects cross-origin targets and normalises path-
+                # confusion payloads (CVE-2026-33709 class). Reading
+                # ``?next=`` directly and calling ``self.redirect`` would be
+                # an open redirect — see the JupyterHub upstream LoginHandler
+                # for the reference flow.
+                next_url = self.get_next_url(
+                    user, default=url_path_join(self.hub.base_url, "home")
+                )
 
                 self.log.info(f"Auto-login: user '{username}' authenticated, redirecting to {next_url}")
                 self.redirect(next_url)
