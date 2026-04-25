@@ -96,12 +96,18 @@ c.JupyterHub.cleanup_servers = False
 c.JupyterHub.last_activity_interval = 60
 c.JupyterHub.tornado_settings = {"slow_spawn_timeout": 0}
 
-# Harden _xsrf session cookie.
-# - Secure: only transmitted over HTTPS (safe because HSTS is enforced site-wide).
-# - SameSite=Lax: blocks cross-site POST forgery while allowing top-level navigations.
-# - HttpOnly is intentionally omitted: JupyterHub's frontend JS reads _xsrf to
-#   include it in form submissions, so HttpOnly would break the XSRF protection.
-c.JupyterHub.cookie_options = {"Secure": True, "SameSite": "Lax"}
+# Harden _xsrf session cookie via Tornado's xsrf_cookie_kwargs.
+# JupyterHub.cookie_options only affects Hub session cookies; the _xsrf cookie
+# is managed directly by Tornado and requires xsrf_cookie_kwargs in
+# tornado_settings to set Secure and SameSite.
+# - Secure: safe because HSTS is enforced site-wide via Cloudflare.
+# - SameSite=Lax: blocks cross-site POST CSRF while allowing OAuth top-level redirects.
+# - HttpOnly is intentionally omitted: JupyterHub's frontend JS must read _xsrf
+#   to include it in form submissions.
+c.JupyterHub.tornado_settings = {
+    **c.JupyterHub.tornado_settings,
+    "xsrf_cookie_kwargs": {"secure": True, "samesite": "Lax"},
+}
 
 # Database configuration
 db_type = z2jh.get_config("hub.db.type")
