@@ -26,6 +26,7 @@ import { ThemeToggle } from './ThemeToggle';
 const tabs = [
   { path: '/users', label: 'Users', icon: 'bi-people' },
   { path: '/groups', label: 'Groups', icon: 'bi-collection' },
+  { path: '/runtime', label: 'Runtime', icon: 'bi-sliders' },
   { path: '/dashboard', label: 'Dashboard', icon: 'bi-bar-chart-line' },
 ];
 

@@ -21,6 +21,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { UserList } from './pages/UserList';
 import { GroupList } from './pages/GroupList';
 import { Dashboard } from './pages/Dashboard';
+import { RuntimeControls } from './pages/RuntimeControls';
 import { NavBar } from './components/NavBar';
 import { PLATFORM_NAME } from '@auplc/shared';
 
@@ -37,6 +38,7 @@ function App() {
         <Routes>
           <Route path="/users" element={<UserList />} />
           <Route path="/groups" element={<GroupList />} />
+          <Route path="/runtime" element={<RuntimeControls />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/" element={<Navigate to="/users" replace />} />
         </Routes>
