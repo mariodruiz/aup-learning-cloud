@@ -175,7 +175,9 @@ class RemoteLabKubeSpawner(KubeSpawner):
         # Auto-login or dummy mode: grant all resources
         if self.auth_mode in ["auto-login", "dummy"]:
             self.log.debug(f"Auth mode '{self.auth_mode}': granting all resources")
-            return self.team_resource_mapping.get("official", [])
+            from core.runtime_config import get_effective_resources_for_group
+
+            return get_effective_resources_for_group("official", self.team_resource_mapping)
 
         # Resolve resources from JupyterHub groups
         from core.groups import get_resources_for_user
@@ -205,6 +207,19 @@ class RemoteLabKubeSpawner(KubeSpawner):
         ``spawn.html`` template renders this via ``{{ spawner_options_form | safe }}``.
         """
         try:
+            from core.runtime_config import get_spawn_block_reason_for_user
+
+            block_reason = get_spawn_block_reason_for_user(self.user)
+            if block_reason:
+                escaped_reason = json.dumps(block_reason)
+                return (
+                    "<script>"
+                    "window.AVAILABLE_RESOURCES=[];"
+                    "window.SINGLE_NODE_MODE=false;"
+                    f"window.SPAWN_BLOCK_REASON={escaped_reason};"
+                    "</script>"
+                )
+
             available_resource_names = await self.get_user_resources()
             self.log.debug(f"Providing users with following resources: {available_resource_names}")
 
@@ -300,6 +315,23 @@ class RemoteLabKubeSpawner(KubeSpawner):
         # Validate resource type
         if resource_type not in self.resource_images:
             raise RuntimeError(f"Unknown Resource: {resource_type}")
+
+        from core.runtime_config import (
+            get_effective_resources_for_group,
+            get_effective_resources_for_user,
+            get_spawn_block_reason_for_user,
+        )
+
+        block_reason = get_spawn_block_reason_for_user(self.user)
+        if block_reason:
+            raise RuntimeError(f"Cannot start server: {block_reason}")
+        available_resources = (
+            get_effective_resources_for_group("official", self.team_resource_mapping)
+            if self.auth_mode in ["auto-login", "dummy"]
+            else get_effective_resources_for_user(self.user, self.team_resource_mapping)
+        )
+        if resource_type not in available_resources:
+            raise RuntimeError(f"Resource '{resource_type}' is not available for this user")
 
         # Configure spawner based on selections
         self._configure_spawner(resource_type, gpu_selection)
@@ -698,6 +730,12 @@ class RemoteLabKubeSpawner(KubeSpawner):
 
     async def start(self):
         """Start the spawner and schedule automatic shutdown."""
+        from core.runtime_config import get_spawn_block_reason_for_user
+
+        block_reason = get_spawn_block_reason_for_user(self.user)
+        if block_reason:
+            raise web.HTTPError(403, f"Cannot start container: {block_reason}")
+
         # Ensure pod fails immediately (not retried) when an init container fails.
         # JupyterHub manages pod lifecycle; Kubernetes should not silently restart pods.
         self.extra_pod_config = {"restartPolicy": "Never"}

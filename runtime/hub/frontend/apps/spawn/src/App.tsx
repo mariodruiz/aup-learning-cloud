@@ -366,7 +366,7 @@ function App() {
       {resources.length === 0 ? (
         <div className="warning-box">
           <strong>No resources available</strong><br />
-          Please contact administrator for access.
+          {window.SPAWN_BLOCK_REASON ?? 'Please contact administrator for access.'}
         </div>
       ) : (
         <div className="spawn-layout">

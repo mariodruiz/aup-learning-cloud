@@ -183,17 +183,9 @@ def get_resources_for_user(
     Returns:
         Deduplicated list of resource names the user can access.
     """
-    assert user.orm_user is not None  # populated by JupyterHub on init
-    user_group_names = {g.name for g in user.orm_user.groups}
-    available_resources: list[str] = []
+    from core.runtime_config import get_effective_resources_for_user
 
-    for group_name in user_group_names:
-        if group_name not in team_resource_mapping:
-            continue
-        available_resources.extend(team_resource_mapping[group_name])
-
-    # Deduplicate while preserving order
-    return list(dict.fromkeys(available_resources))
+    return get_effective_resources_for_user(user, team_resource_mapping)
 
 
 def is_readonly_group(group: ORMGroup) -> bool:

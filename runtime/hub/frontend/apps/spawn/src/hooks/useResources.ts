@@ -26,6 +26,7 @@ declare global {
   interface Window {
     AVAILABLE_RESOURCES?: string[];
     SINGLE_NODE_MODE?: boolean;
+    SPAWN_BLOCK_REASON?: string;
   }
 }
 
