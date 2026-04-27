@@ -20,11 +20,17 @@
 from __future__ import annotations
 
 import sys
+import types
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CORE = ROOT / "core"
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+if "core" not in sys.modules:
+    core_module = types.ModuleType("core")
+    core_module.__path__ = [str(CORE)]
+    sys.modules["core"] = core_module
 
 from core.runtime_config.registry import key_domain, key_subject  # noqa: E402
 from core.runtime_config.schemas import GroupLifecyclePolicy, ResourceAccessPolicy  # noqa: E402
@@ -43,7 +49,7 @@ def test_group_lifecycle_policy_blocks_group_resources(monkeypatch):
     monkeypatch.setattr(
         service,
         "get_group_lifecycle_policy",
-        lambda _group: GroupLifecyclePolicy(spawnSuspended=True, reason="closed"),
+        lambda _group: GroupLifecyclePolicy(spawnSuspended=True),
     )
 
     result = get_effective_resources_for_group("team-a", {"team-a": ["Course-CV"]})
@@ -66,9 +72,87 @@ def test_resource_access_overlay_adds_and_removes_groups(monkeypatch):
     }
 
     monkeypatch.setattr(service.HubConfig, "get", lambda: DummyConfig())
+    monkeypatch.setattr(service, "get_database_resources", lambda: [])
     monkeypatch.setattr(service, "get_group_lifecycle_policy", lambda _group: GroupLifecyclePolicy())
     monkeypatch.setattr(service, "get_resource_access_policy", lambda resource: policies.get(resource, ResourceAccessPolicy()))
 
     result = get_effective_resources_for_group("team-a", {"team-a": ["Course-CV"]})
 
     assert result == ["Course-DL"]
+
+
+def test_database_resource_can_be_added_by_access_overlay(monkeypatch):
+    import core.runtime_config.service as service
+
+    class DummyResources:
+        images = {"Course-CV": "image"}
+
+    class DummyConfig:
+        resources = DummyResources()
+
+    monkeypatch.setattr(service.HubConfig, "get", lambda: DummyConfig())
+    monkeypatch.setattr(
+        service,
+        "get_database_resources",
+        lambda: [
+            {
+                "key": "Database-Course",
+                "enabled": True,
+            }
+        ],
+    )
+    monkeypatch.setattr(service, "get_group_lifecycle_policy", lambda _group: GroupLifecyclePolicy())
+    monkeypatch.setattr(
+        service,
+        "get_resource_access_policy",
+        lambda resource: ResourceAccessPolicy(addGroups=["team-a"]) if resource == "Database-Course" else ResourceAccessPolicy(),
+    )
+
+    result = get_effective_resources_for_group("team-a", {"team-a": []})
+
+    assert result == ["Database-Course"]
+
+
+def test_resource_catalog_marks_helm_and_database_sources(monkeypatch):
+    import core.runtime_config.service as service
+
+    class DummyResources:
+        images = {"Course-CV": "helm-image"}
+
+    class DummyConfig:
+        resources = DummyResources()
+
+        def get_resource_image(self, key):
+            return self.resources.images[key]
+
+        def get_resource_metadata(self, _key):
+            return None
+
+        def get_resource_requirements(self, _key):
+            return None
+
+    monkeypatch.setattr(service.HubConfig, "get", lambda: DummyConfig())
+    monkeypatch.setattr(
+        service,
+        "get_database_resources",
+        lambda: [
+            {
+                "key": "Database-Course",
+                "source": "database",
+                "image": "db-image",
+                "requirements": {"cpu": "1", "memory": "2Gi"},
+                "metadata": {"group": "OTHERS"},
+                "enabled": True,
+                "locked": False,
+            }
+        ],
+    )
+
+    result = service.get_resource_catalog()
+
+    assert result[0]["key"] == "Course-CV"
+    assert result[0]["source"] == "helm"
+    assert result[0]["locked"] is True
+    assert result[1]["key"] == "Database-Course"
+    assert result[1]["source"] == "database"
+    assert result[1]["locked"] is False

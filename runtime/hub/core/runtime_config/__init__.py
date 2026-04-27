@@ -25,10 +25,18 @@ _SERVICE_EXPORTS = {
     "clear_runtime_override",
     "get_effective_resources_for_group",
     "get_effective_resources_for_user",
+    "get_effective_resource_image",
+    "get_effective_resource_metadata",
+    "get_effective_resource_requirements",
+    "get_resource_catalog",
+    "get_database_resource",
+    "get_database_resources",
     "get_group_lifecycle_policy",
     "get_resource_access_policy",
     "get_runtime_overrides",
     "get_spawn_block_reason_for_user",
+    "set_database_resource",
+    "delete_database_resource",
     "set_runtime_override",
 }
 
