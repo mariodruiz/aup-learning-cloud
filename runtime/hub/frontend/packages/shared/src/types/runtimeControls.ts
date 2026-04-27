@@ -23,7 +23,6 @@ export interface GroupLifecyclePolicy {
   spawnSuspended: boolean;
   startsAt?: string | null;
   expiresAt?: string | null;
-  reason: string;
 }
 
 export interface ResourceAccessPolicy {
@@ -38,7 +37,6 @@ export interface RuntimeOverlay {
   enabled: boolean;
   revision: number;
   updatedBy?: string | null;
-  reason?: string | null;
   source: "database";
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -54,12 +52,15 @@ export interface RuntimeControlsGroup {
 
 export interface RuntimeControlsResource {
   key: string;
-  source: "helm";
+  source: "helm" | "database";
   image: string;
   requirements: ResourceRequirements;
   metadata: Partial<ResourceMetadata>;
   access: ResourceAccessPolicy;
   baselineGroups: string[];
+  enabled?: boolean;
+  locked?: boolean;
+  revision?: number;
 }
 
 export interface RuntimeControlsResponse {

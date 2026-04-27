@@ -17,7 +17,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import type { RuntimeControlsResponse, RuntimeOverlay } from "../types/runtimeControls.js";
+import type { RuntimeControlsResource, RuntimeControlsResponse, RuntimeOverlay } from "../types/runtimeControls.js";
 import { adminApiRequest } from "./client.js";
 
 export async function getRuntimeControls(): Promise<RuntimeControlsResponse> {
@@ -27,18 +27,37 @@ export async function getRuntimeControls(): Promise<RuntimeControlsResponse> {
 export async function setRuntimeOverlay(
   key: string,
   value: Record<string, unknown>,
-  reason: string,
   expectedRevision?: number
 ): Promise<RuntimeOverlay> {
   return adminApiRequest<RuntimeOverlay>(`/runtime-controls/${encodeURIComponent(key)}`, {
     method: "PATCH",
-    body: JSON.stringify({ value, reason, expectedRevision }),
+    body: JSON.stringify({ value, expectedRevision }),
   });
 }
 
-export async function resetRuntimeOverlay(key: string, reason = ""): Promise<{ message: string }> {
-  const suffix = reason ? `?reason=${encodeURIComponent(reason)}` : "";
-  return adminApiRequest<{ message: string }>(`/runtime-controls/${encodeURIComponent(key)}${suffix}`, {
+export async function resetRuntimeOverlay(key: string): Promise<{ message: string }> {
+  return adminApiRequest<{ message: string }>(`/runtime-controls/${encodeURIComponent(key)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function saveRuntimeResource(resource: RuntimeControlsResource): Promise<RuntimeControlsResource> {
+  const body = {
+    key: resource.key,
+    image: resource.image,
+    requirements: resource.requirements,
+    metadata: resource.metadata,
+    enabled: resource.enabled ?? true,
+    expectedRevision: resource.revision,
+  };
+  return adminApiRequest<RuntimeControlsResource>("/runtime-controls/resources", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteRuntimeResource(resourceKey: string): Promise<{ message: string }> {
+  return adminApiRequest<{ message: string }>(`/runtime-controls/resources/${encodeURIComponent(resourceKey)}`, {
     method: "DELETE",
   });
 }
