@@ -313,7 +313,9 @@ class RemoteLabKubeSpawner(KubeSpawner):
         options["gpu_selection"] = gpu_selection
 
         # Validate resource type
-        if resource_type not in self.resource_images:
+        from core.runtime_config import get_database_resource
+
+        if resource_type not in self.resource_images and get_database_resource(resource_type) is None:
             raise RuntimeError(f"Unknown Resource: {resource_type}")
 
         from core.runtime_config import (
@@ -612,10 +614,15 @@ class RemoteLabKubeSpawner(KubeSpawner):
         """Configure the spawner based on the resource type and GPU selection."""
 
         # Set basic configuration
-        self.image = self.resource_images[resource_type]
+        from core.runtime_config import get_effective_resource_image, get_effective_resource_requirements
 
-        # Override image based on accelerator selection
-        if gpu_selection and self._hub_config:
+        image = get_effective_resource_image(resource_type, self.resource_images)
+        if not image:
+            raise RuntimeError(f"Unknown Resource: {resource_type}")
+        self.image = image
+
+        # Override image based on accelerator selection for Helm-provisioned resources
+        if resource_type in self.resource_images and gpu_selection and self._hub_config:
             metadata = self._hub_config.get_resource_metadata(resource_type)
             if metadata and metadata.acceleratorOverrides:
                 accel_override = metadata.acceleratorOverrides.get(gpu_selection)
@@ -626,7 +633,9 @@ class RemoteLabKubeSpawner(KubeSpawner):
                     self.image = accel_override.image
 
         # Set resource requirements
-        requirements = self.resource_requirements[resource_type]
+        requirements = get_effective_resource_requirements(resource_type, self.resource_requirements)
+        if not requirements:
+            raise RuntimeError(f"Missing requirements for resource: {resource_type}")
 
         # Set CPU guarantee and limit
         self.cpu_guarantee = float(requirements["cpu"])
@@ -694,7 +703,7 @@ class RemoteLabKubeSpawner(KubeSpawner):
                     self.log.debug(f"Set environment variables: {env_vars}")
 
         # Apply per-resource env overrides (can override or unset accelerator vars)
-        if self._hub_config:
+        if resource_type in self.resource_images and self._hub_config:
             resource_meta = self._hub_config.get_resource_metadata(resource_type)
             if resource_meta:
                 # Resource-level env (applies to all accelerators)
@@ -840,8 +849,13 @@ class RemoteLabKubeSpawner(KubeSpawner):
 
         # Check if the selected resource permits git cloning
         resource_type = self.user_options.get("resource_type", "")
-        resource_metadata = self._hub_config.get_resource_metadata(resource_type) if self._hub_config else None
-        allow_git_clone = resource_metadata.allowGitClone if resource_metadata else False
+        from core.runtime_config import get_effective_resource_metadata
+
+        helm_metadata = {
+            key: value.model_dump(exclude_none=True) for key, value in self._hub_config.resources.metadata.items()
+        } if self._hub_config else {}
+        resource_metadata = get_effective_resource_metadata(resource_type, helm_metadata)
+        allow_git_clone = bool(resource_metadata.get("allowGitClone", False))
 
         if repo_url and not allow_git_clone:
             self.log.warning(

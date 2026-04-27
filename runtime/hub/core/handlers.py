@@ -833,21 +833,23 @@ class ResourcesAPIHandler(APIHandler):
         injected into the template. This API returns all configured resources.
         """
         from core.config import HubConfig
+        from core.runtime_config import get_resource_catalog
 
         config = HubConfig.get()
 
         # Return all configured resources - access control is done client-side
         # based on spawner-injected window.AVAILABLE_RESOURCES
-        available_resources = set(config.resources.images.keys())
+        resource_catalog = get_resource_catalog()
 
         # Build response
         resources_list = []
         groups_dict: dict[str, list[dict]] = {}
 
-        for key in sorted(available_resources):
-            image = config.get_resource_image(key)
-            requirements = config.get_resource_requirements(key)
-            metadata = config.get_resource_metadata(key)
+        for resource in sorted(resource_catalog, key=lambda item: item["key"]):
+            key = resource["key"]
+            image = resource["image"]
+            requirements = resource["requirements"]
+            metadata = resource["metadata"]
 
             if not image:
                 continue
@@ -855,14 +857,12 @@ class ResourcesAPIHandler(APIHandler):
             resource_data: dict[str, Any] = {
                 "key": key,
                 "image": image,
-                "requirements": requirements.model_dump(by_alias=True, exclude_none=True)
-                if requirements
-                else {"cpu": "2", "memory": "4Gi"},
+                "requirements": requirements,
             }
 
             if metadata:
-                resource_data["metadata"] = metadata.model_dump(exclude_none=True)
-                group_name = metadata.group or "OTHERS"
+                resource_data["metadata"] = metadata
+                group_name = metadata.get("group") or "OTHERS"
             else:
                 # Fallback: derive a human-readable description from the resource key
                 readable = key.replace("-", " ").replace("_", " ")
@@ -922,6 +922,7 @@ class RuntimeControlsAPIHandler(APIHandler):
             get_effective_resources_for_group,
             get_group_lifecycle_policy,
             get_resource_access_policy,
+            get_resource_catalog,
             get_runtime_overrides,
         )
 
@@ -929,25 +930,16 @@ class RuntimeControlsAPIHandler(APIHandler):
         group_names = set(config.teams.mapping.keys())
         group_names.update(group.name for group in self.db.query(ORMGroup).all())
 
-        resources = []
-        for key in sorted(config.resources.images):
-            metadata = config.get_resource_metadata(key)
-            requirements = config.get_resource_requirements(key)
-            resources.append(
-                {
-                    "key": key,
-                    "source": "helm",
-                    "image": config.get_resource_image(key),
-                    "requirements": requirements.model_dump(by_alias=True, exclude_none=True)
-                    if requirements
-                    else {"cpu": "2", "memory": "4Gi"},
-                    "metadata": metadata.model_dump(exclude_none=True) if metadata else {},
-                    "access": get_resource_access_policy(key).model_dump(exclude_none=True),
-                    "baselineGroups": sorted(
-                        group_name for group_name, values in config.teams.mapping.items() if key in values
-                    ),
-                }
-            )
+        resources = [
+            {
+                **resource,
+                "access": get_resource_access_policy(resource["key"]).model_dump(exclude_none=True),
+                "baselineGroups": sorted(
+                    group_name for group_name, values in config.teams.mapping.items() if resource["key"] in values
+                ),
+            }
+            for resource in get_resource_catalog()
+        ]
 
         groups = [
             {
@@ -983,7 +975,6 @@ class RuntimeControlsDetailAPIHandler(APIHandler):
                 key,
                 request.value,
                 actor=self.current_user.name,
-                reason=request.reason,
                 enabled=request.enabled,
                 expected_revision=request.expectedRevision,
             )
@@ -1007,9 +998,54 @@ class RuntimeControlsDetailAPIHandler(APIHandler):
 
         from core.runtime_config.service import clear_runtime_override
 
-        clear_runtime_override(key, actor=self.current_user.name, reason=self.get_argument("reason", ""))
+        clear_runtime_override(key, actor=self.current_user.name)
         self.set_header("Content-Type", "application/json")
         self.finish(json.dumps({"message": "Runtime overlay reset to Helm source"}))
+
+
+class RuntimeResourceDefinitionAPIHandler(APIHandler):
+    """Admin API for database-managed resources."""
+
+    @web.authenticated
+    async def put(self):
+        assert self.current_user is not None
+        if not self.current_user.admin:
+            raise web.HTTPError(403, "Admin access required")
+
+        try:
+            from core.runtime_config.service import set_database_resource
+
+            body = json.loads(self.request.body.decode("utf-8"))
+            result = set_database_resource(body, actor=self.current_user.name)
+        except (ValueError, ValidationError, json.JSONDecodeError) as exc:
+            self.set_status(400)
+            self.set_header("Content-Type", "application/json")
+            return self.finish(json.dumps({"error": str(exc)}))
+
+        self.set_header("Content-Type", "application/json")
+        self.finish(json.dumps(result))
+
+
+class RuntimeResourceDefinitionDetailAPIHandler(APIHandler):
+    """Admin API for deleting database-managed resources."""
+
+    @web.authenticated
+    async def delete(self, resource_key):
+        assert self.current_user is not None
+        if not self.current_user.admin:
+            raise web.HTTPError(403, "Admin access required")
+
+        try:
+            from core.runtime_config.service import delete_database_resource
+
+            delete_database_resource(resource_key)
+        except ValueError as exc:
+            self.set_status(400)
+            self.set_header("Content-Type", "application/json")
+            return self.finish(json.dumps({"error": str(exc)}))
+
+        self.set_header("Content-Type", "application/json")
+        self.finish(json.dumps({"message": "Database-managed resource deleted"}))
 
 
 class GitSpawnHandler(BaseHandler):
@@ -1619,6 +1655,7 @@ def get_handlers() -> list[tuple[str, type]]:
         # Admin UI
         (r"/admin/users", AdminUIHandler),
         (r"/admin/groups", AdminUIHandler),
+        (r"/admin/runtime", AdminUIHandler),
         (r"/admin/api/set-password", AdminAPISetPasswordHandler),
         (r"/admin/api/batch-set-password", AdminAPIBatchSetPasswordHandler),
         (r"/admin/api/generate-password", AdminAPIGeneratePasswordHandler),
@@ -1629,6 +1666,8 @@ def get_handlers() -> list[tuple[str, type]]:
         (r"/admin/api/groups/([^/]+)/users/?", GroupMembersAPIHandler),
         # Runtime source-aware access overlays
         (r"/admin/api/runtime-controls/?", RuntimeControlsAPIHandler),
+        (r"/admin/api/runtime-controls/resources/?", RuntimeResourceDefinitionAPIHandler),
+        (r"/admin/api/runtime-controls/resources/([^/]+)/?", RuntimeResourceDefinitionDetailAPIHandler),
         (r"/admin/api/runtime-controls/([^/]+)/?", RuntimeControlsDetailAPIHandler),
         # Accelerator info API
         (r"/api/accelerators", AcceleratorsAPIHandler),
@@ -1683,6 +1722,8 @@ __all__ = [
     "ResourcesAPIHandler",
     "RuntimeControlsAPIHandler",
     "RuntimeControlsDetailAPIHandler",
+    "RuntimeResourceDefinitionAPIHandler",
+    "RuntimeResourceDefinitionDetailAPIHandler",
     "StatsMyUsageHandler",
     "GitHubReposHandler",
     # Group management handlers
