@@ -111,9 +111,11 @@ def create_all_tables():
     # Import all ORM models to register them with Base
     from core.authenticators import models as _auth_models
     from core.quota import orm as _quota_orm
+    from core.runtime_config import models as _runtime_config_models
 
     # Ensure models are registered (avoid unused import optimization)
     _ = _auth_models.UserPassword
     _ = _quota_orm.UserQuota
+    _ = _runtime_config_models.RuntimeConfigOverride
 
     Base.metadata.create_all(_engine)
