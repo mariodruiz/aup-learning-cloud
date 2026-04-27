@@ -839,7 +839,7 @@ class ResourcesAPIHandler(APIHandler):
 
         # Return all configured resources - access control is done client-side
         # based on spawner-injected window.AVAILABLE_RESOURCES
-        resource_catalog = get_resource_catalog()
+        resource_catalog = get_resource_catalog(include_disabled=False)
 
         # Build response
         resources_list = []
@@ -947,7 +947,7 @@ class RuntimeControlsAPIHandler(APIHandler):
                 "source": "helm" if group_name in config.teams.mapping else "database",
                 "baselineResources": config.teams.mapping.get(group_name, []),
                 "effectiveResources": get_effective_resources_for_group(group_name, config.teams.mapping),
-                "lifecycle": get_group_lifecycle_policy(group_name).model_dump(exclude_none=True),
+                "lifecycle": get_group_lifecycle_policy(group_name).model_dump(mode="json", exclude_none=True),
             }
             for group_name in sorted(group_names)
         ]
@@ -981,7 +981,7 @@ class RuntimeControlsDetailAPIHandler(APIHandler):
         except ValidationError as ve:
             self.set_status(400)
             self.set_header("Content-Type", "application/json")
-            return self.finish(json.dumps({"error": "Validation failed", "details": ve.errors()}))
+            return self.finish(json.dumps({"error": "Validation failed", "details": ve.errors(include_context=False)}))
         except (ValueError, json.JSONDecodeError) as exc:
             self.set_status(400)
             self.set_header("Content-Type", "application/json")
@@ -996,9 +996,14 @@ class RuntimeControlsDetailAPIHandler(APIHandler):
         if not self.current_user.admin:
             raise web.HTTPError(403, "Admin access required")
 
-        from core.runtime_config.service import clear_runtime_override
+        try:
+            from core.runtime_config.service import clear_runtime_override
 
-        clear_runtime_override(key, actor=self.current_user.name)
+            clear_runtime_override(key, actor=self.current_user.name)
+        except ValueError as exc:
+            self.set_status(400)
+            self.set_header("Content-Type", "application/json")
+            return self.finish(json.dumps({"error": str(exc)}))
         self.set_header("Content-Type", "application/json")
         self.finish(json.dumps({"message": "Runtime overlay reset to Helm source"}))
 
@@ -1074,7 +1079,9 @@ class GitSpawnHandler(BaseHandler):
         if self.get_argument("autostart", ""):
             params.append(("autostart", "1"))
         if resource := self.get_argument("resource", ""):
-            if resource not in config.resources.images:
+            from core.runtime_config import get_database_resource
+
+            if resource not in config.resources.images and get_database_resource(resource) is None:
                 raise web.HTTPError(400, f"Unknown resource: '{resource}'")
             params.append(("resource", resource))
         if accelerator := self.get_argument("accelerator", ""):

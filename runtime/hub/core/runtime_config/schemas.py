@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class GroupLifecyclePolicy(BaseModel):
@@ -56,6 +56,13 @@ class ResourceAccessPolicy(BaseModel):
     denyGroups: list[str] = Field(default_factory=list)
 
     model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def validate_disjoint_groups(self) -> ResourceAccessPolicy:
+        overlap = sorted(set(self.addGroups) & set(self.denyGroups))
+        if overlap:
+            raise ValueError(f"groups cannot be both added and denied: {', '.join(overlap)}")
+        return self
 
 
 class RuntimeOverrideWrite(BaseModel):

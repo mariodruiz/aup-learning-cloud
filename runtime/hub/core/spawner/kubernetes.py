@@ -193,7 +193,10 @@ class RemoteLabKubeSpawner(KubeSpawner):
         # any reason, fall back to the mapping entry directly.
         if not username.startswith("github:"):
             self.log.debug(f"Native user '{username}' has no groups, using default fallback")
-            return self.team_resource_mapping.get("native-users", self.team_resource_mapping.get("official", []))
+            from core.runtime_config import get_effective_resources_for_group
+
+            fallback_group = "native-users" if "native-users" in self.team_resource_mapping else "official"
+            return get_effective_resources_for_group(fallback_group, self.team_resource_mapping)
 
         # GitHub user with no matching groups
         self.log.debug(f"No resources found for user '{username}', set to none")
@@ -297,8 +300,15 @@ class RemoteLabKubeSpawner(KubeSpawner):
         options = {}
 
         # Parse runtime
-        runtime_minutes = formdata.get("runtime", ["20"])[0]
-        options["runtime_minutes"] = int(runtime_minutes)
+        runtime_value = formdata.get("runtime", ["20"])[0]
+        try:
+            runtime_minutes = int(runtime_value)
+        except ValueError as exc:
+            raise RuntimeError(f"Invalid runtime duration: {runtime_value}") from exc
+        max_runtime = 4320 if self.single_node_mode else 240
+        if runtime_minutes < 10 or runtime_minutes > max_runtime:
+            raise RuntimeError(f"Runtime duration must be between 10 and {max_runtime} minutes")
+        options["runtime_minutes"] = runtime_minutes
 
         # Parse resource type
         resource_type_list = formdata.get("resource_type", [])
@@ -729,7 +739,7 @@ class RemoteLabKubeSpawner(KubeSpawner):
                         )
 
         # Special configuration for NPU resources
-        if resource_type in ["Tutorial-NPU-Resnet", "ROSCON2025-GPU", "ROSCON2025-NPU"]:
+        if resource_type in self.resource_images and resource_type in ["Tutorial-NPU-Resnet", "ROSCON2025-GPU", "ROSCON2025-NPU"]:
             self.log.debug(f"Set node affinity for NPU {resource_type}")
             for key, value in NPU_SECURITY_CONFIG.items():
                 if hasattr(self, key):

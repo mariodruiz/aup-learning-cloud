@@ -58,11 +58,11 @@ export function useResources(): UseResourcesResult {
         const response = await getResources();
 
         // Filter resources based on what the spawner allows
+        const hasFilter = Array.isArray(window.AVAILABLE_RESOURCES);
         const allowedKeys = window.AVAILABLE_RESOURCES ?? [];
-        const hasFilter = allowedKeys.length > 0;
         const allowedSet = new Set(allowedKeys);
 
-        // If no filter provided or empty, use all resources
+        // Undefined means no filter was provided; an explicit empty array means no resources are allowed.
         const filteredResources = hasFilter
           ? response.resources.filter(r => allowedSet.has(r.key))
           : response.resources;

@@ -19,9 +19,12 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import types
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / "core"
@@ -33,7 +36,7 @@ if "core" not in sys.modules:
     sys.modules["core"] = core_module
 
 from core.runtime_config.registry import key_domain, key_subject  # noqa: E402
-from core.runtime_config.schemas import GroupLifecyclePolicy, ResourceAccessPolicy  # noqa: E402
+from core.runtime_config.schemas import GroupLifecyclePolicy, ResourceAccessPolicy, RuntimeResourceWrite  # noqa: E402
 from core.runtime_config.service import get_effective_resources_for_group  # noqa: E402
 
 
@@ -55,6 +58,24 @@ def test_group_lifecycle_policy_blocks_group_resources(monkeypatch):
     result = get_effective_resources_for_group("team-a", {"team-a": ["Course-CV"]})
 
     assert result == []
+
+
+def test_group_lifecycle_policy_serializes_datetime_values():
+    policy = GroupLifecyclePolicy(startsAt="2026-01-01T00:00:00Z", expiresAt="2026-01-02T00:00:00Z")
+
+    dumped = policy.model_dump(mode="json", exclude_none=True)
+
+    assert dumped == {
+        "spawnSuspended": False,
+        "startsAt": "2026-01-01T00:00:00Z",
+        "expiresAt": "2026-01-02T00:00:00Z",
+    }
+    json.dumps(dumped)
+
+
+def test_resource_access_policy_rejects_contradictory_groups():
+    with pytest.raises(ValueError, match="both added and denied"):
+        ResourceAccessPolicy(addGroups=["team-a"], denyGroups=["team-a"])
 
 
 def test_resource_access_overlay_adds_and_removes_groups(monkeypatch):
@@ -156,3 +177,60 @@ def test_resource_catalog_marks_helm_and_database_sources(monkeypatch):
     assert result[1]["key"] == "Database-Course"
     assert result[1]["source"] == "database"
     assert result[1]["locked"] is False
+
+
+def test_resource_catalog_can_hide_disabled_database_resources(monkeypatch):
+    import core.runtime_config.service as service
+
+    class DummyResources:
+        images = {}
+
+    class DummyConfig:
+        resources = DummyResources()
+
+    monkeypatch.setattr(service.HubConfig, "get", lambda: DummyConfig())
+    monkeypatch.setattr(
+        service,
+        "get_database_resources",
+        lambda: [
+            {
+                "key": "Disabled-Course",
+                "source": "database",
+                "image": "db-image",
+                "requirements": {"cpu": "1", "memory": "2Gi"},
+                "metadata": {"group": "OTHERS"},
+                "enabled": False,
+                "locked": False,
+            }
+        ],
+    )
+
+    assert service.get_resource_catalog(include_disabled=False) == []
+    assert service.get_resource_catalog(include_disabled=True)[0]["key"] == "Disabled-Course"
+
+
+def test_database_resource_validation_rejects_invalid_requirements(monkeypatch):
+    import core.runtime_config.service as service
+
+    class DummyConfig:
+        accelerators = {}
+
+    monkeypatch.setattr(service.HubConfig, "get", lambda: DummyConfig())
+
+    with pytest.raises(ValueError, match="unknown requirement"):
+        service._validate_resource_definition(
+            RuntimeResourceWrite(
+                key="Database-Course",
+                image="example/runtime:1",
+                requirements={"cpu": "1", "memory": "2Gi", "example.com/gpu": "1"},
+            )
+        )
+
+    with pytest.raises(ValueError, match="memory_limit"):
+        service._validate_resource_definition(
+            RuntimeResourceWrite(
+                key="Database-Course",
+                image="example/runtime:1",
+                requirements={"cpu": "1", "memory": "4Gi", "memory_limit": "2Gi"},
+            )
+        )
