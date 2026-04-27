@@ -42,6 +42,23 @@ class RuntimeConfigOverride(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     updated_by: Mapped[str | None] = mapped_column(String(255))
-    reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class RuntimeResourceDefinition(Base):
+    """Database-managed resource definition, similar to a Grafana DB dashboard."""
+
+    __tablename__ = "runtime_resource_definitions"
+    __table_args__ = (UniqueConstraint("key", name="uq_runtime_resource_definitions_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    image: Mapped[str] = mapped_column(Text, nullable=False)
+    requirements_json: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[str] = mapped_column(Text, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_by: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime | None] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, default=func.now(), onupdate=func.now())

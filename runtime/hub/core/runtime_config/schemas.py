@@ -32,9 +32,8 @@ class GroupLifecyclePolicy(BaseModel):
     spawnSuspended: bool = False
     startsAt: datetime | None = None
     expiresAt: datetime | None = None
-    reason: str = ""
 
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "ignore"}
 
     def block_reason(self, now: datetime | None = None) -> str | None:
         reference = self.startsAt or self.expiresAt
@@ -42,11 +41,11 @@ class GroupLifecyclePolicy(BaseModel):
         if reference and reference.tzinfo is None and current_time.tzinfo is not None:
             current_time = current_time.replace(tzinfo=None)
         if self.spawnSuspended:
-            return self.reason or "Group spawn access is suspended"
+            return "Group spawn access is suspended"
         if self.startsAt and current_time < self.startsAt:
-            return self.reason or "Group spawn access has not started"
+            return "Group spawn access has not started"
         if self.expiresAt and current_time > self.expiresAt:
-            return self.reason or "Group spawn access has expired"
+            return "Group spawn access has expired"
         return None
 
 
@@ -63,6 +62,16 @@ class RuntimeOverrideWrite(BaseModel):
     value: dict
     enabled: bool = True
     expectedRevision: int | None = None
-    reason: str = ""
+
+    model_config = {"extra": "forbid"}
+
+
+class RuntimeResourceWrite(BaseModel):
+    key: str
+    image: str
+    requirements: dict[str, str]
+    metadata: dict = Field(default_factory=dict)
+    enabled: bool = True
+    expectedRevision: int | None = None
 
     model_config = {"extra": "forbid"}

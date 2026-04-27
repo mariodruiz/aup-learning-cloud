@@ -117,5 +117,6 @@ def create_all_tables():
     _ = _auth_models.UserPassword
     _ = _quota_orm.UserQuota
     _ = _runtime_config_models.RuntimeConfigOverride
+    _ = _runtime_config_models.RuntimeResourceDefinition
 
     Base.metadata.create_all(_engine)
