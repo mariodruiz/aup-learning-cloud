@@ -17,10 +17,28 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-export * from "./user.js";
-export * from "./quota.js";
-export * from "./accelerator.js";
-export * from "./resource.js";
-export * from "./hub.js";
-export * from "./stats.js";
-export * from "./runtimeControls.js";
+import type { RuntimeControlsResponse, RuntimeOverlay } from "../types/runtimeControls.js";
+import { adminApiRequest } from "./client.js";
+
+export async function getRuntimeControls(): Promise<RuntimeControlsResponse> {
+  return adminApiRequest<RuntimeControlsResponse>("/runtime-controls");
+}
+
+export async function setRuntimeOverlay(
+  key: string,
+  value: Record<string, unknown>,
+  reason: string,
+  expectedRevision?: number
+): Promise<RuntimeOverlay> {
+  return adminApiRequest<RuntimeOverlay>(`/runtime-controls/${encodeURIComponent(key)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ value, reason, expectedRevision }),
+  });
+}
+
+export async function resetRuntimeOverlay(key: string, reason = ""): Promise<{ message: string }> {
+  const suffix = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+  return adminApiRequest<{ message: string }>(`/runtime-controls/${encodeURIComponent(key)}${suffix}`, {
+    method: "DELETE",
+  });
+}
