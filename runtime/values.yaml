@@ -379,15 +379,27 @@ monitoring:
 
   hubMetrics:
     enabled: false
-    # Disable JupyterHub read:metrics scope requirement so in-cluster
-    # Prometheus can scrape /hub/metrics without authentication.
-    allowUnauthenticatedScrape: true
+    # Keep JupyterHub's read:metrics scope requirement enabled by default.
+    # Set this to true only for isolated development environments where
+    # /hub/metrics is guaranteed not to be reachable through a public proxy,
+    # NodePort, LoadBalancer, or Ingress.
+    allowUnauthenticatedScrape: false
     serviceAnnotations:
-      enabled: true
+      # Annotation-based Prometheus scraping cannot attach the JupyterHub token.
+      # Prefer the ServiceMonitor below for authenticated in-cluster scraping.
+      enabled: false
 
   serviceMonitor:
     enabled: false
     interval: 15s
+    authorization:
+      enabled: true
+      type: Bearer
+      hubServiceName: prometheus-metrics
+      secret:
+        create: true
+        name: ""
+        key: token
 
   grafana:
     dashboard:

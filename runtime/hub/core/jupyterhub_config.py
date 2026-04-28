@@ -179,7 +179,7 @@ for trait, cfg_key in (
 
 # Optional Prometheus metrics access
 metrics_enabled = z2jh.get_config("monitoring.hubMetrics.enabled", False)
-allow_unauthenticated_metrics = z2jh.get_config("monitoring.hubMetrics.allowUnauthenticatedScrape", True)
+allow_unauthenticated_metrics = z2jh.get_config("monitoring.hubMetrics.allowUnauthenticatedScrape", False)
 
 if metrics_enabled and allow_unauthenticated_metrics:
     c.JupyterHub.authenticate_prometheus = False
