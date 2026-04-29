@@ -699,15 +699,6 @@ function App() {
         </section>
       </div>
 
-      {/* Footer */}
-      <div className="home-footer">
-        <div className="container">
-          &copy; 2025–2026 Advanced Micro Devices, Inc. All rights reserved.
-          &middot;
-          {PLATFORM_NAME}
-        </div>
-      </div>
-
       {/* Stop Server Confirm Modal */}
       {/* Stop Server Confirm Modal */}
       {showStopConfirm && (
