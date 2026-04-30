@@ -256,9 +256,9 @@ custom:
           - strix-halo
         # acceleratorOverrides: (optional) per-accelerator image and env overrides
         #   9070xt:
-        #     image: "ghcr.io/amdresearch/auplc-cv:v1.0-rocm-gfx120X"
-        #     env:
-        #       HSA_OVERRIDE_GFX_VERSION: "11.0.0"
+        #     image: "ghcr.io/your-org/auplc-cv:<tag-for-9070xt>"
+        #   r9700:
+        #     image: "ghcr.io/your-org/auplc-cv:<tag-for-r9700>"
       Course-DL:
         group: "COURSE"
         description: "Deep Learning Course"

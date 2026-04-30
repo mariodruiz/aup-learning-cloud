@@ -109,12 +109,7 @@ custom:
       description: "RDNA 3.0 (gfx1103) | Compute Units 12 | 4GB LPDDR5X"
       nodeSelector:
         amd.com/gpu.product-name: "AMD_Radeon_780M_Graphics"
-      env:
-        # Phoenix hw (gfx1100/1101/1102/1103) shares a single gfx110x ROCm
-        # build — we do not ship dedicated images for gfx1102/gfx1103 — so
-        # force every Phoenix GPU to report as gfx1100 at runtime so it
-        # accepts the shared kernels.
-        HSA_OVERRIDE_GFX_VERSION: "11.0.0"
+      env: {}
       quotaRate: 2
     strix:
       displayName: "AMD Radeon™ 890M (Strix Point iGPU)"
@@ -214,9 +209,9 @@ custom:
           - strix-halo
         # acceleratorOverrides: (optional) per-accelerator image and env overrides
         #   9070xt:
-        #     image: "ghcr.io/amdresearch/auplc-cv:v1.0-rocm-gfx120X"
-        #     env:
-        #       HSA_OVERRIDE_GFX_VERSION: "11.0.0"
+        #     image: "ghcr.io/your-org/auplc-cv:<tag-for-9070xt>"
+        #   r9700:
+        #     image: "ghcr.io/your-org/auplc-cv:<tag-for-r9700>"
       Course-DL:
         group: "COURSE"
         description: "Deep Learning Course"
