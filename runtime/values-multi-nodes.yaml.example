@@ -40,7 +40,7 @@
 #   - Adjust CPU/memory/GPU settings in requirements
 #
 # Add a new accelerator:
-#   - Add new GPU/NPU node type in custom.accelerators
+#   - Add a new accelerator entry in custom.accelerators
 # ============================================================================
 
 custom:
@@ -100,7 +100,7 @@ custom:
   # --------------------------------------------------------------------------
   # Accelerator Configuration
   # --------------------------------------------------------------------------
-  # Define available GPU node types for the spawn UI.
+  # Define available accelerator entries for the spawn UI.
   # These selectors follow runtime/values.yaml and use the ROCm node labeller's
   # amd.com/gpu.product-name labels.
   accelerators:
