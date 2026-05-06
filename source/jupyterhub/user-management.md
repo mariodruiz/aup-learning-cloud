@@ -1,387 +1,286 @@
 # User Management Guide
 
-This guide covers user management via the Admin Panel (web interface) and CLI scripts.
+This guide covers the current user-management surfaces in AUP Learning Cloud.
+
+There are now two real workflows:
+
+- **Web admin console** at `/hub/admin`
+- **CLI scripts** for spreadsheet-driven bulk operations
+
+The web console is now the primary day-to-day interface.
 
 ## Prerequisites
 
+For CLI workflows, install the documented Python dependencies first:
+
 ```bash
-# Install dependencies
 pip install pandas openpyxl requests
 ```
 
-## Initial Setup
-
-### Auto-Admin on Helm Install
-
-When `custom.adminUser.enabled: true` is set in values.yaml, helm install automatically:
-
-1. Generates random API token and admin password
-2. Creates `jupyterhub-admin-credentials` secret
-3. Configures `admin` user with admin privileges on hub startup
-
-The API token is associated with the `admin` user for script operations.
-
-**Get credentials after install:**
+If you are using script-based operations against the Hub API, set:
 
 ```bash
-# Get admin password
+export JUPYTERHUB_URL="http://localhost:30890"
+export JUPYTERHUB_TOKEN=$(kubectl -n jupyterhub get secret jupyterhub-admin-credentials \
+  -o jsonpath='{.data.api-token}' | base64 -d)
+```
+
+## Admin Bootstrap
+
+If you want the chart to create the initial admin credentials automatically:
+
+```yaml
+custom:
+  adminUser:
+    enabled: true
+```
+
+Then retrieve the credentials with:
+
+```bash
 kubectl -n jupyterhub get secret jupyterhub-admin-credentials \
-  -o go-template='{{index .data "admin-password" | base64decode}}'
+  -o jsonpath='{.data.admin-password}' | base64 -d && echo
 
-# Get API token
-export JUPYTERHUB_TOKEN=$(kubectl -n jupyterhub get secret jupyterhub-admin-credentials \
-  -o go-template='{{index .data "api-token" | base64decode}}')
+kubectl -n jupyterhub get secret jupyterhub-admin-credentials \
+  -o jsonpath='{.data.api-token}' | base64 -d && echo
 ```
 
-### Manual Setup (if auto-admin disabled)
+## Web Admin Console
 
-If `custom.adminUser.enabled: false`, create credentials manually:
+Open `/hub/admin` after logging in as an admin user.
 
-```bash
-# Create secret with random token and password
-kubectl -n jupyterhub create secret generic jupyterhub-admin-credentials \
-  --from-literal=api-token=$(openssl rand -hex 32) \
-  --from-literal=admin-password=$(openssl rand -base64 12)
+### Users View
 
-# Restart hub to apply
-kubectl -n jupyterhub rollout restart deployment/hub
-```
+The **Users** page supports:
 
-## Daily Usage
+- searching and paging users
+- filtering to users with active servers
+- inline quota editing when quota is enabled
+- starting and stopping user servers
+- creating native users
+- editing user details
+- resetting passwords for native users
+- batch password reset for selected native users
+- batch quota update for selected users
+- batch delete for deletable users
+- opening a per-user usage detail view
 
-### Set Environment Variables
+Important behavior from the current implementation:
 
-```bash
-# Get token from Kubernetes secret
-export JUPYTERHUB_TOKEN=$(kubectl -n jupyterhub get secret jupyterhub-admin-credentials \
-  -o go-template='{{index .data "api-token" | base64decode}}')
-export JUPYTERHUB_URL="http://localhost:30890"  # Or your hub URL
-```
+- admin users and the currently logged-in admin are protected from deletion
+- password reset actions apply only to native users
+- unlimited quota can be entered with `-1`, `∞`, or `unlimited`
+- user creation flows can pre-fill quota when quota is enabled
 
-Or add to your shell profile (~/.bashrc or ~/.zshrc):
+### Common User Actions
 
-```bash
-alias jhtoken='export JUPYTERHUB_TOKEN=$(kubectl -n jupyterhub get secret jupyterhub-admin-credentials -o go-template="{{index .data \"api-token\" | base64decode}}")'
-```
+#### Create Native Users
 
-## Web Interface (Admin Panel)
+Use **Create Users** in the Users view to:
 
-Access the Admin Panel at `/hub/admin/users`.
+- enter one username or many usernames at once
+- generate random passwords or set a shared password
+- force password change on first login
+- optionally grant admin privileges
 
-<!-- TODO: Add screenshot of the Admin Panel user list -->
-<!-- ![Admin Panel User List](./images/user-1-admin-panel.png) -->
+After creation, copy the generated credentials table and deliver it securely to users.
 
-### User Table
+#### Reset Passwords
 
-The user table displays:
-- **Username** - Click to view user details
-- **Admin** - Admin status badge
-- **Quota** - Current quota balance (if quota system enabled)
-- **Server** - Server status (Running/Stopped)
-- **Last Activity** - Last login or activity time
+The current admin flow exposes:
 
-### Create User
+- `/admin/reset-password`
+- `/admin/api/set-password`
+- `/admin/api/batch-set-password`
 
-1. Click **"Create Users"** button
-2. Enter usernames (one per line for batch creation)
-3. Choose password option:
-   - **Generate random passwords** (default) - Each user gets a unique password
-   - **Set password** - Enter a password for all users
-4. (Optional) Check **"Force password change on first login"**
-5. (Optional) Check **"Grant admin privileges"**
-6. Click **"Create Users"**
-7. After creation, copy the username/password table to share with users
+This is available only for native users, not GitHub-authenticated identities.
 
-<!-- TODO: Add screenshot of Create User modal -->
-<!-- ![Create User Modal](./images/user-2-create-modal.png) -->
+#### Start And Stop Servers
 
-### Edit User
+Admins can start or stop user servers directly from the Users page, which is helpful for:
 
-1. Click the **pencil icon** on a user row to view user details
-2. Click **"Edit User"** to enter edit mode
-3. Available modifications:
-   - **Username** - Rename the user (warning: user must login with new name)
-   - **Admin status** - Grant or revoke admin privileges
-   - **Groups** - Assign user to groups
-4. Click **"Save Changes"**
+- recovering stuck sessions
+- clearing idle notebook servers manually
+- preparing classroom demos or labs
 
-### Set Password
+### Groups View
 
-1. Click the **key icon** on a user row
-2. Enter new password, or click **"Generate"** for a random password
-3. (Optional) Check **"Force password change on next login"**
-4. Click **"Set Password"**
-5. After success, copy the password to share with the user
+The **Groups** page distinguishes among:
 
-<!-- TODO: Add screenshot of Set Password modal -->
-<!-- ![Set Password Modal](./images/user-3-password-modal.png) -->
+- **GitHub-synced groups**
+- **system-managed groups**
+- **manual groups**
 
-### Server Control
+It supports:
 
-- **Stop**: Click the red stop button to stop a user's running server
-- **Start**: Click the green play button to start a user's server
+- creating manual groups
+- searching groups
+- editing group properties
+- reviewing group-to-resource mappings
+- adding and removing users from editable groups
+- manual GitHub sync through **Sync Now** when `custom.githubOrgName` is configured
 
-### Batch Operations
+Current protection model:
 
-1. Select multiple users using checkboxes
-2. Available batch actions:
-   - **Start All Selected** - Start servers for selected users
-   - **Stop All Selected** - Stop servers for selected users
-   - **Set Quota** - Set quota for selected users (see [Quota System](./quota-system.md))
+- **system-managed groups** are read-only for membership edits
+- **GitHub-synced groups** are protected from deletion, but admins can still add extra users manually
+- **native-users** may appear as a normal editable group unless it was created with a protected source property
 
-<!-- TODO: Add screenshot of batch operations with multiple users selected -->
-<!-- ![Batch Operations](./images/user-4-batch-operations.png) -->
+### Dashboard View
 
-### Search and Filter
+The **Dashboard** page provides:
 
-- Use the search box to filter users by username
-- Toggle "Only Active Servers" to show only users with running servers
-- Click column headers to sort by that column
+- total users
+- active sessions
+- total usage minutes
+- active users this week
+- usage trends
+- resource distribution
+- top-user views
+- live active sessions
+- pending spawns
 
-### Manage Groups
+Use this as the primary operational view for current platform usage.
 
-Click **"Manage Groups"** to navigate to the group management page.
+## CLI Scripts
 
-## Script Usage
+The repository still includes CLI tools for bulk management.
 
-### 1. Generate User Templates
-
-Create user list templates for batch operations.
+### Generate Templates
 
 ```bash
-# Generate 50 students
+# Generate a CSV template
 python scripts/generate_users_template.py --prefix student --count 50 --output users.csv
 
-# Generate AUP users (AUP01, AUP02, ...)
-python scripts/generate_users_template.py --prefix AUP --count 30 --start 1 --output aup_users.xlsx
+# Generate an Excel template
+python scripts/generate_users_template.py --prefix AUP --count 30 --output aup_users.xlsx
 
-# Generate with 3-digit padding
-python scripts/generate_users_template.py --prefix student --count 100 --digits 3 --output users.csv
-
-# Custom usernames
-python scripts/generate_users_template.py --names alice bob charlie --output custom.csv
+# Generate explicit names
+python scripts/generate_users_template.py --names alice bob charlie --output custom_users.csv
 ```
 
-**Output format (CSV/Excel):**
-
-```text
-username,admin
-student01,false
-student02,false
-student03,false
-```
-
-### 2. Manage Users
-
-Perform batch operations via JupyterHub API.
+### Manage Users
 
 ```bash
-# Create users from file
+# Create users from a file
 python scripts/manage_users.py create users.csv
 
-# List all users
+# List users
 python scripts/manage_users.py list
 
-# Export users to backup file
+# Export users
 python scripts/manage_users.py export backup.xlsx
 
-# Delete users (with confirmation)
-python scripts/manage_users.py delete remove_list.csv
-
-# Delete users (skip confirmation)
+# Delete users
 python scripts/manage_users.py delete remove_list.csv --yes
 ```
 
-### 3. Manage Admin Privileges
-
-Grant or revoke admin privileges for existing users.
+### Manage Admins
 
 ```bash
-# Grant admin to single user
-python scripts/manage_users.py set-admin teacher01
+# Promote admins
+python scripts/manage_users.py set-admin teacher01 teacher02
 
-# Grant admin to multiple users
-python scripts/manage_users.py set-admin teacher01 teacher02 teacher03
-
-# Grant admin from file
-python scripts/manage_users.py set-admin -f admins.csv
-
-# Revoke admin privileges
+# Revoke admin
 python scripts/manage_users.py set-admin --revoke student01
-
-# Batch revoke
-python scripts/manage_users.py set-admin --revoke -f demote_list.csv
 ```
 
-### 4. Set Passwords
-
-Set default passwords for users (requires kubectl access).
-
-> **Note:** For quota management commands (`set-quota`, `add-quota`, `list-quota`), see the [User Quota System](./quota-system.md) documentation.
+### Manage Passwords
 
 ```bash
-# Set passwords from file with password column
-python scripts/manage_users.py set-passwords users_with_passwords.csv
-
-# Generate random passwords for users
+# Set passwords from file
 python scripts/manage_users.py set-passwords users.csv --generate -o passwords_output.csv
 
-# Set same default password for all users
+# Use one shared password
 python scripts/manage_users.py set-passwords users.csv --generate --default-password "Welcome123"
 
-# Set passwords without forcing change on first login
+# Skip force-change behavior
 python scripts/manage_users.py set-passwords users.csv --no-force-change
 ```
 
+### Manage Quota From CLI
+
+Quota commands remain available too:
+
+```bash
+python scripts/manage_users.py set-quota user1 user2 --amount 1000
+python scripts/manage_users.py add-quota user1 user2 --amount 100
+python scripts/manage_users.py list-quota
+```
+
+These commands use `kubectl exec` into `deployment/hub`, so they depend on a healthy Kubernetes context and namespace.
+
 ## Common Workflows
 
-### Create New Users
+### Onboard A Class
 
 ```bash
-# Step 1: Generate template
-python scripts/generate_users_template.py \
-  --prefix student \
-  --count 50 \
-  --output new_students.csv
-
-# Step 2: (Optional) Edit CSV to customize
-# Edit new_students.csv if needed
-
-# Step 3: Create users in JupyterHub
-python scripts/manage_users.py create new_students.csv
+python scripts/generate_users_template.py --prefix student --count 50 --output users.csv
+python scripts/manage_users.py create users.csv
+python scripts/manage_users.py set-passwords users.csv --generate -o passwords_output.csv
 ```
 
-**Expected output:**
-```
-✅ Connected to JupyterHub at http://localhost:30890
-📄 Loaded 50 users from new_students.csv
+Then distribute credentials and optionally set initial quota from the web admin console or CLI.
 
-🔄 Creating 50 users...
-  ✅ Created user: student01 (admin=False)
-  ✅ Created user: student02 (admin=False)
-  ...
-
-==================================================
-📊 Results:
-  ✅ Created: 50
-  ⚠️  Already exist: 0
-  ❌ Failed: 0
-==================================================
-```
-
-### Promote Users to Admin
+### Promote Teaching Staff
 
 ```bash
-# Single user
-python scripts/manage_users.py set-admin teacher01
-
-# Multiple users
 python scripts/manage_users.py set-admin teacher01 teacher02
-
-# From file (any CSV with username column)
-python scripts/manage_users.py set-admin -f new_admins.csv
 ```
 
-### Backup Users
+### Back Up Current User State
 
 ```bash
-# Backup current users
-python scripts/manage_users.py export users_backup_$(date +%Y%m%d).xlsx
-
-# Later: restore users
-python scripts/manage_users.py create users_backup_20260113.xlsx
+python scripts/manage_users.py export backup.xlsx
 ```
 
-### Remove Users
+## Recommended Operational Flow
+
+### Single-Node
+
+After config changes:
 
 ```bash
-# Step 1: Export current users
-python scripts/manage_users.py export all_users.csv
-
-# Step 2: Edit CSV, keep only users to delete
-# Create remove_list.csv with usernames to delete
-
-# Step 3: Delete users
-python scripts/manage_users.py delete remove_list.csv
+sudo ./auplc-installer rt upgrade
 ```
 
-## File Format
+### Manual / Multi-Node Helm
 
-Both scripts support **CSV** and **Excel** (.xlsx) formats.
-
-**Required column:**
-- `username` - Username to create/delete
-
-**Optional columns:**
-- `admin` - Set to `true` for admin users (default: `false`)
-- `password` - Password for set-passwords command
-
-**Example CSV:**
-
-```text
-username,admin
-student01,false
-student02,false
-teacher01,true
+```bash
+cd runtime
+helm upgrade --install jupyterhub ./chart \
+  -n jupyterhub --create-namespace \
+  -f values-multi-nodes.yaml
 ```
 
 ## Troubleshooting
 
-### Connection Issues
+### Script Cannot Connect To The Hub
 
-**Symptom:** "Connection refused"
+Check:
 
-**Solutions:**
-```bash
-# Check hub is running
-kubectl --namespace=jupyterhub get pods
+- `JUPYTERHUB_URL`
+- `JUPYTERHUB_TOKEN`
+- that the Hub is reachable at `/hub/api/`
 
-# For local dev
-export JUPYTERHUB_URL="http://localhost:30890"
+### Password Reset Fails
 
-# For production
-export JUPYTERHUB_URL="https://your-domain.com"
+This usually means one of:
 
-# Test connection
-curl $JUPYTERHUB_URL/hub/api/
-```
+- the target user is a GitHub user
+- the password does not satisfy the native password policy
+- the current admin session lacks the expected permissions
 
-### Authentication Issues
+### Batch Quota Or Password Operations Fail
 
-**Symptom:** "Authentication failed"
+For CLI commands that depend on `kubectl exec`, verify:
 
-**Solutions:**
-```bash
-# Verify token is set
-echo $JUPYTERHUB_TOKEN
+- current kube context
+- namespace
+- `deployment/hub` health
 
-# Test token
-curl -X GET $JUPYTERHUB_URL/hub/api/ \
-  -H "Authorization: token $JUPYTERHUB_TOKEN"
-```
+## Related Pages
 
-### Common Errors
-
-**"User already exists"**
-- This is just a warning, not an error
-- The user is already in the system
-
-**"File must contain 'username' column"**
-- Ensure your file has a `username` column header
-
-## Notes
-
-- **Auto-Admin**: Initial admin is created automatically on helm install
-- **Additional Admins**: Use `set-admin` command or Admin Panel
-- **First Login**: Native users must set their password on first login
-- **Safety**: Delete operations ask for confirmation (use `--yes` to skip)
-- **Batch Size**: No limit, but larger batches (1000+) may be slow
-
-## Help
-
-Get detailed help for each script:
-
-```bash
-python scripts/generate_users_template.py --help
-python scripts/manage_users.py --help
-```
+- [Authentication Guide](authentication-guide.md)
+- [User Quota System](quota-system.md)
+- [Configuration Reference](configuration-reference.md)
