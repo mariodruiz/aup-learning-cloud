@@ -11,6 +11,8 @@ the installer reads from.
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from auplc_installer.gpu import (
     _GFX_FALLBACK,
@@ -18,10 +20,17 @@ from auplc_installer.gpu import (
     PRODUCT_NAME_TO_SKU,
     GpuConfig,
     SkuEntry,
+    _rocminfo_gpu_agent_records,
     append_product,
+    detect_and_configure_gpu,
+    detect_gpu_gfx_family,
+    detect_gpu_product_names,
     is_curated_sku,
+    normalise_gpu_type_key,
     normalise_product_name,
+    refine_gpu_config_from_node_labels,
     resolve_gpu_config,
+    sku_for_detected_product,
     sku_for_product_name,
 )
 from auplc_installer.util import InstallerError
@@ -43,6 +52,47 @@ class NormaliseProductNameTests(unittest.TestCase):
     def test_empty_input_yields_empty(self) -> None:
         self.assertEqual(normalise_product_name(""), "")
         self.assertEqual(normalise_product_name("   "), "")
+
+    def test_normalises_ryzen_ai_890m_marketing_name(self) -> None:
+        self.assertEqual(
+            normalise_product_name("AMD Ryzen AI 9 HX 370 w/ Radeon 890M"),
+            "AMD_Ryzen_AI_9_HX_370_w_Radeon_890M",
+        )
+
+
+ROCMINFO_WITH_STRIX_CPU_AND_GPU = """
+Agent 1
+Name:                    AMD Ryzen AI 9 HX 370 w/ Radeon 890M
+Marketing Name:          AMD Ryzen AI 9 HX 370 w/ Radeon 890M
+Device Type:             CPU
+ISA Info:
+Agent 2
+Name:                    gfx1150
+Marketing Name:          AMD Radeon Graphics
+Device Type:             GPU
+ISA Info:
+ISA 1
+Name:                    amdgcn-amd-amdhsa--gfx1150
+ISA 2
+Name:                    amdgcn-amd-amdhsa--gfx11-generic
+"""
+
+
+class RocminfoGpuAgentParserTests(unittest.TestCase):
+    def test_records_ignore_cpu_marketing_name_and_keep_gpu_gfx_target(self) -> None:
+        self.assertEqual(
+            _rocminfo_gpu_agent_records(ROCMINFO_WITH_STRIX_CPU_AND_GPU), [("AMD Radeon Graphics", ["gfx1150"])]
+        )
+
+    @patch("auplc_installer.gpu.command_exists", return_value=True)
+    @patch("auplc_installer.gpu.run_capture", return_value=SimpleNamespace(stdout=ROCMINFO_WITH_STRIX_CPU_AND_GPU))
+    def test_detect_gpu_product_names_reads_gpu_agent_marketing_only(self, *_: object) -> None:
+        self.assertEqual(detect_gpu_product_names(), ["AMD_Radeon_Graphics"])
+
+    @patch("auplc_installer.gpu.command_exists", return_value=True)
+    @patch("auplc_installer.gpu.run_capture", return_value=SimpleNamespace(stdout=ROCMINFO_WITH_STRIX_CPU_AND_GPU))
+    def test_detect_gpu_gfx_family_prefers_gpu_agent_target(self, *_: object) -> None:
+        self.assertEqual(detect_gpu_gfx_family(), "gfx1150")
 
 
 class CuratedSkuLookupTests(unittest.TestCase):
@@ -77,9 +127,54 @@ class ResolveGpuConfigTests(unittest.TestCase):
         accel_key, gpu_target, _, _, _ = resolve_gpu_config("gfx1151")
         self.assertEqual((accel_key, gpu_target), ("strix-halo", "gfx1151"))
 
+    def test_hyphenated_gfx_alias(self) -> None:
+        accel_key, gpu_target, _, _, _ = resolve_gpu_config("gfx-1150")
+        self.assertEqual((accel_key, gpu_target), ("strix", "gfx1150"))
+
+    def test_normalise_gpu_type_key(self) -> None:
+        self.assertEqual(normalise_gpu_type_key(" GFX-1150 "), "gfx1150")
+        self.assertEqual(normalise_gpu_type_key("strix_halo"), "strix-halo")
+
     def test_unsupported_input_raises(self) -> None:
         with self.assertRaises(InstallerError):
             resolve_gpu_config("totally-not-a-gpu")
+
+
+class DetectedProductFallbackTests(unittest.TestCase):
+    def test_unknown_product_uses_detected_gfx_family_before_generic_fallback(self) -> None:
+        row = sku_for_detected_product("AMD_Radeon_Graphics", "gfx1150")
+        self.assertEqual(row[0], "strix")
+        self.assertEqual(row[1], "gfx1150")
+
+    def test_unknown_product_without_gfx_family_keeps_generic_fallback(self) -> None:
+        row = sku_for_detected_product("AMD_Radeon_Graphics")
+        self.assertEqual(row[1], "gfx120x")
+
+    @patch("auplc_installer.gpu.detect_gpu_gfx_family", return_value="gfx1150")
+    @patch("auplc_installer.gpu.detect_gpu_product_names", return_value=["AMD_Radeon_Graphics"])
+    def test_detect_and_configure_uses_gfx_for_generic_single_product_name(self, *_: object) -> None:
+        cfg = GpuConfig()
+        detect_and_configure_gpu(cfg)
+        self.assertEqual(cfg.accel_key, "strix")
+        self.assertEqual(cfg.gpu_target, "gfx1150")
+        self.assertEqual(cfg.gpu_product_name, "AMD_Radeon_Graphics")
+
+    @patch("auplc_installer.gpu._read_gpu_product_names_from_node_labels", return_value=["AMD_Radeon_Graphics"])
+    def test_refinement_preserves_existing_gfx_for_generic_product_name(self, *_: object) -> None:
+        cfg = GpuConfig()
+        cfg.append(
+            SkuEntry(
+                accel_key="strix",
+                product_name="AMD_Radeon_Graphics",
+                gpu_target="gfx1150",
+                accel_env="",
+                quota_rate=2,
+                display_name="",
+            )
+        )
+        refine_gpu_config_from_node_labels(cfg)
+        self.assertEqual(cfg.accel_key, "strix")
+        self.assertEqual(cfg.gpu_target, "gfx1150")
 
 
 class FallbackQuotaRateAlignmentTests(unittest.TestCase):

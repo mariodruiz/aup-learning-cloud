@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from auplc_installer.util import command_exists, log, run_capture
+from auplc_installer.util import InstallerError, command_exists, log, run_capture
 
 # ---------------------------------------------------------------------------
 # Curated SKU table  — keep accel_key in sync with runtime/values.yaml
@@ -86,14 +86,22 @@ _GFX_FALLBACK: dict[str, SkuRow] = {
 }
 
 
+def normalise_gpu_type_key(input_key: str) -> str:
+    """Normalise CLI/detected GPU type aliases to fallback-table keys."""
+    key = input_key.strip().lower().replace("_", "-")
+    m = re.fullmatch(r"gfx-?([0-9]+)", key)
+    if m:
+        return f"gfx{m.group(1)}"
+    return key
+
+
 def resolve_gpu_config(input_key: str) -> SkuRow:
     """Map a user-supplied GPU type or detected gfx family to a SKU row.
 
     Raises :class:`InstallerError` for unsupported inputs.
     """
-    from auplc_installer.util import InstallerError
-
-    row = _GFX_FALLBACK.get(input_key)
+    key = normalise_gpu_type_key(input_key)
+    row = _GFX_FALLBACK.get(key)
     if row is None:
         raise InstallerError(
             f"Unsupported GPU type: {input_key}\n"
@@ -121,6 +129,77 @@ def normalise_product_name(raw: str) -> str:
     return s.strip("_")
 
 
+def _append_unique(out: list[str], seen: set[str], value: str) -> None:
+    if value and value not in seen:
+        seen.add(value)
+        out.append(value)
+
+
+def _rocminfo_gpu_agent_records(text: str) -> list[tuple[str, list[str]]]:
+    """Return ``(marketing_name, gfx_targets)`` records for GPU agents.
+
+    ROCm reports the GPU agent ``Name`` from the ISA processor target and the
+    ``Marketing Name`` from a separate product/branding field. Keep the parser
+    scoped to ``Device Type: GPU`` blocks so CPU/APU marketing names do not
+    influence image-tag selection.
+    """
+    records: list[tuple[str, list[str]]] = []
+    in_agent = False
+    in_isa = False
+    device_type = ""
+    agent_name = ""
+    marketing = ""
+    isa_targets: list[str] = []
+
+    def gfx_from(value: str) -> str:
+        m = re.search(r"\bgfx[0-9]{3,4}\b", value)
+        return m.group(0) if m else ""
+
+    def flush() -> None:
+        if not in_agent or device_type != "GPU":
+            return
+        targets: list[str] = []
+        seen_targets: set[str] = set()
+        for target in isa_targets:
+            _append_unique(targets, seen_targets, target)
+        _append_unique(targets, seen_targets, gfx_from(agent_name))
+        records.append((marketing, targets))
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if re.match(r"^Agent\s+\d+\b", line):
+            flush()
+            in_agent = True
+            in_isa = False
+            device_type = ""
+            agent_name = ""
+            marketing = ""
+            isa_targets = []
+            continue
+        if not in_agent:
+            continue
+        if line.startswith("ISA Info:"):
+            in_isa = True
+            continue
+        if line.startswith("Device Type:"):
+            device_type = line.split(":", 1)[1].strip()
+            continue
+        if line.startswith("Marketing Name:"):
+            marketing = line.split(":", 1)[1].strip()
+            continue
+        if line.startswith("Name:"):
+            value = line.split(":", 1)[1].strip()
+            if in_isa:
+                target = gfx_from(value)
+                if target:
+                    isa_targets.append(target)
+            elif not agent_name:
+                agent_name = value
+
+    flush()
+    return records
+
+
 def detect_gpu_product_names() -> list[str]:
     """All distinct AMD GPU product names on this host (labeller-normalised)."""
     out: list[str] = []
@@ -134,22 +213,9 @@ def detect_gpu_product_names() -> list[str]:
             text = res.stdout or ""
         except Exception:
             text = ""
-        marketing = ""
-        for raw_line in text.splitlines():
-            line = raw_line.strip()
-            m = re.match(r"^Marketing Name:\s*(.*)$", line)
-            if m:
-                marketing = m.group(1).strip()
-                continue
-            m = re.match(r"^Device Type:\s*(.*)$", line)
-            if m:
-                devtype = m.group(1).strip()
-                if devtype == "GPU" and marketing:
-                    name = normalise_product_name(marketing)
-                    if name and name not in seen:
-                        seen.add(name)
-                        out.append(name)
-                marketing = ""
+        for marketing, _ in _rocminfo_gpu_agent_records(text):
+            name = normalise_product_name(marketing)
+            _append_unique(out, seen, name)
 
     # 2. amdgpu sysfs (no ROCm dependency).
     for f in sorted(Path("/sys/class/drm").glob("card*/device/product_name")):
@@ -175,10 +241,9 @@ def detect_gpu_gfx_family() -> str | None:
     if command_exists("rocminfo"):
         try:
             res = run_capture(["rocminfo"], check=False, stderr_to_stdout=True)
-            for line in (res.stdout or "").splitlines():
-                m = re.search(r"gfx[0-9]+", line)
-                if m:
-                    return m.group(0)
+            for _, targets in _rocminfo_gpu_agent_records(res.stdout or ""):
+                if targets:
+                    return targets[0]
         except Exception:
             pass
 
@@ -295,11 +360,29 @@ def sku_for_product_name(product: str) -> SkuRow:
     return PRODUCT_NAME_TO_SKU.get(product) or _synthesise_uncurated_row(product)
 
 
-def append_product(cfg: GpuConfig, product: str) -> None:
+def sku_for_detected_product(product: str, gfx_family: str = "") -> SkuRow:
+    """Resolve a detected product, using gfx family before generic fallback.
+
+    Some ROCm/sysfs stacks report a generic marketing name for Strix-class
+    APUs. When a precise gfx family is available, prefer it over the generic
+    future-GPU fallback so single-node local builds keep the correct image tag.
+    """
+    row = PRODUCT_NAME_TO_SKU.get(product)
+    if row is not None:
+        return row
+    if gfx_family:
+        try:
+            return resolve_gpu_config(gfx_family)
+        except InstallerError:
+            pass
+    return _synthesise_uncurated_row(product)
+
+
+def append_product(cfg: GpuConfig, product: str, gfx_family: str = "") -> None:
     """Resolve a product name and append it as an SKU entry."""
     if not product:
         return
-    accel_key, gpu_target, env, rate, display = sku_for_product_name(product)
+    accel_key, gpu_target, env, rate, display = sku_for_detected_product(product, gfx_family)
     cfg.append(
         SkuEntry(
             accel_key=accel_key,
@@ -340,18 +423,21 @@ def detect_and_configure_gpu(cfg: GpuConfig, gpu_type_override: str = "") -> Non
     cfg.gpu_product_name = ""
 
     names = detect_gpu_product_names()
+    detected_gfx = ""
+    if len(names) == 1 and names[0] not in PRODUCT_NAME_TO_SKU:
+        detected_gfx = detect_gpu_gfx_family() or ""
     if names:
         log("Detected GPU product name(s) from host:")
         for name in names:
             log(f"  - {name}")
-            append_product(cfg, name)
+            append_product(cfg, name, detected_gfx)
 
     if not cfg.skus:
         if gpu_type_override:
             log(f"Using GPU type override: {gpu_type_override}")
             input_key = gpu_type_override
         else:
-            gfx = detect_gpu_gfx_family()
+            gfx = detected_gfx or detect_gpu_gfx_family()
             if gfx:
                 log(f"Detected GPU: {gfx}")
                 input_key = gfx
@@ -466,7 +552,7 @@ def refine_gpu_config_from_node_labels(cfg: GpuConfig) -> None:
 
     cfg.reset()
     for n in names:
-        append_product(cfg, n)
+        append_product(cfg, n, pinned_target)
 
     log("Refreshed GPU SKUs from node labels (ROCm labeller is authoritative):")
     log("  product names    : " + ", ".join(names))
