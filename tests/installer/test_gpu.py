@@ -11,6 +11,7 @@ the installer reads from.
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from auplc_installer.gpu import (
     _GFX_FALLBACK,
@@ -19,9 +20,12 @@ from auplc_installer.gpu import (
     GpuConfig,
     SkuEntry,
     append_product,
+    detect_and_configure_gpu,
     is_curated_sku,
+    normalise_gpu_type_key,
     normalise_product_name,
     resolve_gpu_config,
+    sku_for_detected_product,
     sku_for_product_name,
 )
 from auplc_installer.util import InstallerError
@@ -77,9 +81,37 @@ class ResolveGpuConfigTests(unittest.TestCase):
         accel_key, gpu_target, _, _, _ = resolve_gpu_config("gfx1151")
         self.assertEqual((accel_key, gpu_target), ("strix-halo", "gfx1151"))
 
+    def test_hyphenated_gfx_alias(self) -> None:
+        accel_key, gpu_target, _, _, _ = resolve_gpu_config("gfx-1150")
+        self.assertEqual((accel_key, gpu_target), ("strix", "gfx1150"))
+
+    def test_normalise_gpu_type_key(self) -> None:
+        self.assertEqual(normalise_gpu_type_key(" GFX-1150 "), "gfx1150")
+        self.assertEqual(normalise_gpu_type_key("strix_halo"), "strix-halo")
+
     def test_unsupported_input_raises(self) -> None:
         with self.assertRaises(InstallerError):
             resolve_gpu_config("totally-not-a-gpu")
+
+
+class DetectedProductFallbackTests(unittest.TestCase):
+    def test_unknown_product_uses_detected_gfx_family_before_generic_fallback(self) -> None:
+        row = sku_for_detected_product("AMD_Radeon_Graphics", "gfx1150")
+        self.assertEqual(row[0], "strix")
+        self.assertEqual(row[1], "gfx1150")
+
+    def test_unknown_product_without_gfx_family_keeps_generic_fallback(self) -> None:
+        row = sku_for_detected_product("AMD_Radeon_Graphics")
+        self.assertEqual(row[1], "gfx120x")
+
+    @patch("auplc_installer.gpu.detect_gpu_gfx_family", return_value="gfx1150")
+    @patch("auplc_installer.gpu.detect_gpu_product_names", return_value=["AMD_Radeon_Graphics"])
+    def test_detect_and_configure_uses_gfx_for_generic_single_product_name(self, *_: object) -> None:
+        cfg = GpuConfig()
+        detect_and_configure_gpu(cfg)
+        self.assertEqual(cfg.accel_key, "strix")
+        self.assertEqual(cfg.gpu_target, "gfx1150")
+        self.assertEqual(cfg.gpu_product_name, "AMD_Radeon_Graphics")
 
 
 class FallbackQuotaRateAlignmentTests(unittest.TestCase):

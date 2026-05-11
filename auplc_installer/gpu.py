@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from auplc_installer.util import command_exists, log, run_capture
+from auplc_installer.util import InstallerError, command_exists, log, run_capture
 
 # ---------------------------------------------------------------------------
 # Curated SKU table  — keep accel_key in sync with runtime/values.yaml
@@ -86,14 +86,22 @@ _GFX_FALLBACK: dict[str, SkuRow] = {
 }
 
 
+def normalise_gpu_type_key(input_key: str) -> str:
+    """Normalise CLI/detected GPU type aliases to fallback-table keys."""
+    key = input_key.strip().lower().replace("_", "-")
+    m = re.fullmatch(r"gfx-?([0-9]+)", key)
+    if m:
+        return f"gfx{m.group(1)}"
+    return key
+
+
 def resolve_gpu_config(input_key: str) -> SkuRow:
     """Map a user-supplied GPU type or detected gfx family to a SKU row.
 
     Raises :class:`InstallerError` for unsupported inputs.
     """
-    from auplc_installer.util import InstallerError
-
-    row = _GFX_FALLBACK.get(input_key)
+    key = normalise_gpu_type_key(input_key)
+    row = _GFX_FALLBACK.get(key)
     if row is None:
         raise InstallerError(
             f"Unsupported GPU type: {input_key}\n"
@@ -295,11 +303,29 @@ def sku_for_product_name(product: str) -> SkuRow:
     return PRODUCT_NAME_TO_SKU.get(product) or _synthesise_uncurated_row(product)
 
 
-def append_product(cfg: GpuConfig, product: str) -> None:
+def sku_for_detected_product(product: str, gfx_family: str = "") -> SkuRow:
+    """Resolve a detected product, using gfx family before generic fallback.
+
+    Some ROCm/sysfs stacks report a generic marketing name for Strix-class
+    APUs. When a precise gfx family is available, prefer it over the generic
+    future-GPU fallback so single-node local builds keep the correct image tag.
+    """
+    row = PRODUCT_NAME_TO_SKU.get(product)
+    if row is not None:
+        return row
+    if gfx_family:
+        try:
+            return resolve_gpu_config(gfx_family)
+        except InstallerError:
+            pass
+    return _synthesise_uncurated_row(product)
+
+
+def append_product(cfg: GpuConfig, product: str, gfx_family: str = "") -> None:
     """Resolve a product name and append it as an SKU entry."""
     if not product:
         return
-    accel_key, gpu_target, env, rate, display = sku_for_product_name(product)
+    accel_key, gpu_target, env, rate, display = sku_for_detected_product(product, gfx_family)
     cfg.append(
         SkuEntry(
             accel_key=accel_key,
@@ -340,18 +366,21 @@ def detect_and_configure_gpu(cfg: GpuConfig, gpu_type_override: str = "") -> Non
     cfg.gpu_product_name = ""
 
     names = detect_gpu_product_names()
+    detected_gfx = ""
+    if len(names) == 1 and names[0] not in PRODUCT_NAME_TO_SKU:
+        detected_gfx = detect_gpu_gfx_family() or ""
     if names:
         log("Detected GPU product name(s) from host:")
         for name in names:
             log(f"  - {name}")
-            append_product(cfg, name)
+            append_product(cfg, name, detected_gfx)
 
     if not cfg.skus:
         if gpu_type_override:
             log(f"Using GPU type override: {gpu_type_override}")
             input_key = gpu_type_override
         else:
-            gfx = detect_gpu_gfx_family()
+            gfx = detected_gfx or detect_gpu_gfx_family()
             if gfx:
                 log(f"Detected GPU: {gfx}")
                 input_key = gfx
