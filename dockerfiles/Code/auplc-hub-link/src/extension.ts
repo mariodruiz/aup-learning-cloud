@@ -23,11 +23,51 @@ const COMMAND_ID = "auplc.backToHub";
 const STATUS_BAR_TEXT = "$(home) JupyterHub";
 
 function getHubUrl(): string {
-  return process.env.AUPLC_HUB_URL || "/hub/home";
+  return process.env.AUPLC_HUB_URL?.trim() || "/hub/home";
+}
+
+function getAbsoluteHttpUri(url: string): vscode.Uri | undefined {
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return undefined;
+  }
+
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    return undefined;
+  }
+
+  return vscode.Uri.parse(parsedUrl.toString(), true);
+}
+
+function getInvalidHubUrlMessage(url: string): string {
+  if (url.startsWith("/")) {
+    return `AUPLC_HUB_URL is set to the relative path "${url}". Configure an absolute http(s) URL to enable the Back-to-Hub shortcut.`;
+  }
+
+  return `AUPLC_HUB_URL must be an absolute http(s) URL to enable the Back-to-Hub shortcut. Current value: "${url}".`;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 async function openHub(): Promise<void> {
-  await vscode.env.openExternal(vscode.Uri.parse(getHubUrl(), true));
+  const hubUrl = getHubUrl();
+  const hubUri = getAbsoluteHttpUri(hubUrl);
+
+  if (!hubUri) {
+    await vscode.window.showWarningMessage(getInvalidHubUrlMessage(hubUrl));
+    return;
+  }
+
+  await vscode.env.openExternal(hubUri);
+}
+
+function handleOpenHubError(error: unknown): void {
+  void vscode.window.showErrorMessage(`Unable to open JupyterHub: ${getErrorMessage(error)}`);
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -38,7 +78,7 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBarItem.show();
 
   const command = vscode.commands.registerCommand(COMMAND_ID, () => {
-    void openHub();
+    void openHub().catch(handleOpenHubError);
   });
 
   context.subscriptions.push(statusBarItem, command);

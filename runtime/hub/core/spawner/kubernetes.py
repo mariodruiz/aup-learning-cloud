@@ -327,6 +327,28 @@ class RemoteLabKubeSpawner(KubeSpawner):
 
         return options
 
+    def _get_public_hub_home_url(self) -> str:
+        """Return the public Hub home URL for links opened from code-server."""
+        hub_path = "/hub/home"
+        handler = getattr(self, "handler", None)
+
+        if handler is None:
+            return hub_path
+
+        public_url = str(getattr(handler, "public_url", "") or "").strip()
+        if public_url:
+            parsed = urlparse(public_url)
+            if parsed.scheme in {"http", "https"} and parsed.netloc:
+                return public_url.rstrip("/") + hub_path
+
+        request = getattr(handler, "request", None)
+        protocol = str(getattr(request, "protocol", "") or "").strip()
+        host = str(getattr(request, "host", "") or "").strip()
+        if protocol in {"http", "https"} and host:
+            return f"{protocol}://{host}{hub_path}"
+
+        return hub_path
+
     def _validate_and_sanitize_repo_url(self, url: str) -> tuple[bool, str, str]:
         """
         Validate and normalize a repository URL.
@@ -807,6 +829,9 @@ class RemoteLabKubeSpawner(KubeSpawner):
         )
 
         is_code_resource = self._is_code_resource(resource_type)
+
+        if is_code_resource:
+            self.environment["AUPLC_HUB_URL"] = self._get_public_hub_home_url()
 
         # Inject allowed origins into notebook server startup args
         if self.notebook_allowed_origins and not is_code_resource:
