@@ -37,7 +37,7 @@ ifneq ($(MIRROR_NPM),)
   BUILD_ARGS += --build-arg NPM_REGISTRY=$(MIRROR_NPM)
 endif
 
-.PHONY: all base base-cpu base-rocm base-gfx1151 hub courses cv dl llm physim
+.PHONY: all base base-cpu base-rocm base-gfx1151 hub code code-cpu code-gpu courses cv dl llm physim
 
 # Build all images
 all: base hub courses
@@ -81,6 +81,26 @@ hub:
 		NPM_REGISTRY="$(MIRROR_NPM)" \
 		bash ./build.sh
 	$(MAKE) save-image IMAGE=ghcr.io/amdresearch/auplc-hub:latest
+
+# --- Code Images ---
+code: code-cpu code-gpu
+
+code-cpu:
+	@echo "-------------------------------------------"; \
+		echo "Building Code CPU Image..."; \
+		echo "-------------------------------------------";
+
+	cd Code && IMAGE_FLAVOR=cpu BASE_IMAGE=ghcr.io/amdresearch/auplc-default:latest bash ./build.sh
+	$(MAKE) save-image IMAGE=ghcr.io/amdresearch/auplc-code-cpu:latest
+
+code-gpu:
+	@echo "-------------------------------------------"; \
+		echo "Building Code GPU Image (GPU_TARGET=$(GPU_TARGET))..."; \
+		echo "-------------------------------------------";
+
+	cd Code && IMAGE_FLAVOR=gpu BASE_IMAGE=$(GPU_BASE_IMAGE) bash ./build.sh
+	docker tag ghcr.io/amdresearch/auplc-code-gpu:latest ghcr.io/amdresearch/auplc-code-gpu:latest-$(GPU_TARGET)
+	$(MAKE) save-image IMAGE=ghcr.io/amdresearch/auplc-code-gpu:latest
 
 # --- Course Images ---
 courses: cv dl llm physim
