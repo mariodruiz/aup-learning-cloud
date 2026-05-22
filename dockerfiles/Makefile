@@ -91,7 +91,11 @@ code-cpu:
 		echo "Building Code CPU Image..."; \
 		echo "-------------------------------------------";
 
-	cd Code && IMAGE_FLAVOR=cpu BASE_IMAGE=ghcr.io/amdresearch/auplc-default:latest bash ./build.sh
+	cd Code && IMAGE_FLAVOR=cpu \
+		BASE_IMAGE=ghcr.io/amdresearch/auplc-default:latest \
+		NODE_IMAGE="$(if $(MIRROR_PREFIX),$(MIRROR_PREFIX)/docker.io/library/node:20-bookworm-slim,)" \
+		NPM_REGISTRY="$(MIRROR_NPM)" \
+		bash ./build.sh
 	$(MAKE) save-image IMAGE=ghcr.io/amdresearch/auplc-code-cpu:latest
 
 code-gpu:
@@ -99,7 +103,11 @@ code-gpu:
 		echo "Building Code GPU Image (GPU_TARGET=$(GPU_TARGET))..."; \
 		echo "-------------------------------------------";
 
-	cd Code && IMAGE_FLAVOR=gpu BASE_IMAGE=$(CODE_GPU_BASE_IMAGE) bash ./build.sh
+	cd Code && IMAGE_FLAVOR=gpu \
+		BASE_IMAGE=$(CODE_GPU_BASE_IMAGE) \
+		NODE_IMAGE="$(if $(MIRROR_PREFIX),$(MIRROR_PREFIX)/docker.io/library/node:20-bookworm-slim,)" \
+		NPM_REGISTRY="$(MIRROR_NPM)" \
+		bash ./build.sh
 	docker tag ghcr.io/amdresearch/auplc-code-gpu:latest ghcr.io/amdresearch/auplc-code-gpu:latest-$(GPU_TARGET)
 	$(MAKE) save-image IMAGE=ghcr.io/amdresearch/auplc-code-gpu:latest
 

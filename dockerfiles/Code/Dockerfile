@@ -17,9 +17,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+ARG NODE_IMAGE=docker.io/library/node:20-bookworm-slim
 ARG BASE_IMAGE=ghcr.io/amdresearch/auplc-default:latest
 ARG IMAGE_FLAVOR=cpu
 ARG CODE_SERVER_VERSION=4.96.4
+
+FROM ${NODE_IMAGE} AS hub-link-builder
+
+ARG NPM_REGISTRY=
+WORKDIR /build/auplc-hub-link
+
+COPY auplc-hub-link/package.json auplc-hub-link/package-lock.json ./
+RUN if [ -n "${NPM_REGISTRY}" ]; then npm config set registry "${NPM_REGISTRY}"; fi && \
+    npm ci
+
+COPY auplc-hub-link/ ./
+RUN npm run package && \
+    test -f auplc-hub-link-0.0.0.vsix
+
 FROM ${BASE_IMAGE}
 
 ARG CODE_SERVER_VERSION=4.96.4
@@ -36,7 +51,7 @@ RUN apt-get update && \
 
 COPY extensions.txt /opt/auplc/extensions/extensions.txt
 COPY extensions/ /opt/auplc/extensions/local/
-COPY auplc-hub-link/auplc-hub-link-0.0.0.vsix /opt/auplc/extensions/local/auplc-hub-link-0.0.0.vsix
+COPY --from=hub-link-builder /build/auplc-hub-link/auplc-hub-link-0.0.0.vsix /opt/auplc/extensions/local/auplc-hub-link-0.0.0.vsix
 COPY start-code-server.sh /usr/local/bin/start-code-server.sh
 
 RUN chmod +x /usr/local/bin/start-code-server.sh && \
