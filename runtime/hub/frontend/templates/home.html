@@ -35,13 +35,13 @@ SOFTWARE.
 <div id="home-root"></div>
 <script>
   window.jhdata = {
-    base_url: '{{ base_url }}',
-    xsrf_token: '{{ xsrf_token }}',
-    user: '{{ user.name }}'
+    base_url: {{ base_url|tojson }},
+    xsrf_token: {{ xsrf_token|tojson }},
+    user: {{ user.name|tojson }}
   };
   window.HOME_DATA = {
     server_active: {{ 'true' if default_server.active else 'false' }},
-    server_url: '{{ url }}'
+    server_url: {{ url|tojson }}
   };
 </script>
 <script type="module" src="{{ static_url('home-ui/assets/index.js') }}"></script>
