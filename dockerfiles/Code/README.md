@@ -53,7 +53,7 @@ The Dockerfile pins code-server to version `4.96.4` so builds use a known editor
 The start script launches:
 
 ```bash
-code-server --auth none --bind-addr 127.0.0.1:8889 "${AUPLC_CODE_WORKDIR:-/home/jovyan}"
+code-server --auth none --bind-addr 127.0.0.1:8889 --ignore-last-opened "${AUPLC_CODE_WORKDIR:-/home/jovyan}"
 nginx -c /tmp/auplc-code-server-nginx.conf -g 'daemon off;'
 ```
 
@@ -70,7 +70,7 @@ extensions available when Kubernetes mounts a persistent volume over
 
 `--auth none` is acceptable only because JupyterHub and the JupyterHub proxy remain the authentication boundary. The user pod's port `8888` must stay private to the Hub/proxy path and must not be exposed directly through an unauthenticated service, ingress, or port-forward shared with untrusted users.
 
-When users provide a Git repository on the spawn form, the existing init-container clone flow is reused. For resources with `launchMode: code-server`, the spawner points `AUPLC_CODE_WORKDIR` and the code-server `folder` URL parameter at the cloned directory so code-server opens the repository workspace.
+When users provide a Git repository on the spawn form, the existing init-container clone flow is reused. For resources with `launchMode: code-server`, the spawner points `AUPLC_CODE_WORKDIR` and the code-server `folder` URL parameter at the cloned directory so code-server opens the repository workspace. The launcher also passes `--ignore-last-opened` so a persisted previous workspace cannot override the requested folder.
 
 ## Extensions
 

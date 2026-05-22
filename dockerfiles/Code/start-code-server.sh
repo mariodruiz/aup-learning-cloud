@@ -84,6 +84,7 @@ code-server \
   --auth none \
   --bind-addr "127.0.0.1:${code_server_port}" \
   --extensions-dir "${extensions_dir}" \
+  --ignore-last-opened \
   "${workdir}" &
 code_server_pid="$!"
 
