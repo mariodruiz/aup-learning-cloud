@@ -250,6 +250,7 @@ custom:
         accelerator: ""
         acceleratorKeys: []
         allowGitClone: true
+        resourceType: "notebook"
       code-cpu:
         group: "DEVELOPMENT"
         description: "Code Server CPU Environment"
@@ -258,6 +259,7 @@ custom:
         acceleratorKeys: []
         allowGitClone: true
         launchMode: "code-server"
+        resourceType: "browser-ide"
       gpu:
         group: "CUSTOM REPO"
         description: "Basic GPU Environment"
@@ -266,6 +268,7 @@ custom:
         acceleratorKeys:
           - strix-halo
         allowGitClone: true
+        resourceType: "notebook"
       code-gpu:
         group: "DEVELOPMENT"
         description: "Code Server GPU Environment"
@@ -275,6 +278,7 @@ custom:
           - strix-halo
         allowGitClone: true
         launchMode: "code-server"
+        resourceType: "browser-ide"
       Course-CV:
         group: "COURSE"
         description: "Computer Vision Course"
@@ -287,6 +291,7 @@ custom:
         #     image: "ghcr.io/your-org/auplc-cv:<tag-for-9070xt>"
         #   r9700:
         #     image: "ghcr.io/your-org/auplc-cv:<tag-for-r9700>"
+        resourceType: "notebook"
       Course-DL:
         group: "COURSE"
         description: "Deep Learning Course"
@@ -294,6 +299,7 @@ custom:
         accelerator: "GPU"
         acceleratorKeys:
           - strix-halo
+        resourceType: "notebook"
       Course-LLM:
         group: "COURSE"
         description: "Large Language Models Course"
@@ -301,6 +307,7 @@ custom:
         accelerator: "GPU"
         acceleratorKeys:
           - strix-halo
+        resourceType: "notebook"
       Course-PhySim:
         group: "COURSE"
         description: "Genesis Physical Simulation Course"
@@ -308,6 +315,7 @@ custom:
         accelerator: "GPU"
         acceleratorKeys:
           - strix-halo
+        resourceType: "notebook"
 
   # ============================================================================
   # Team Permission Configuration
