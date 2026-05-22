@@ -32,7 +32,7 @@ The coding environments are intentionally generic:
 - Existing `auplc-default`, `auplc-base`, and `Course-*` images remain notebook/course-focused.
 - Course-specific VS Code image families are not part of this workflow.
 
-The Hub resource keys are `code-cpu` and `code-gpu`. They are configured through the same `custom.resources.images`, `custom.resources.requirements`, `custom.resources.metadata`, and `custom.teams.mapping` model as notebook resources in `runtime/values.yaml`.
+The default Hub resource keys are `code-cpu` and `code-gpu`. Code-server launch behavior is configured through `custom.resources.metadata.<resource>.launchMode: code-server`, alongside the same `custom.resources.images`, `custom.resources.requirements`, and `custom.teams.mapping` model as notebook resources in `runtime/values.yaml`.
 
 ## Build Commands
 
@@ -70,7 +70,7 @@ extensions available when Kubernetes mounts a persistent volume over
 
 `--auth none` is acceptable only because JupyterHub and the JupyterHub proxy remain the authentication boundary. The user pod's port `8888` must stay private to the Hub/proxy path and must not be exposed directly through an unauthenticated service, ingress, or port-forward shared with untrusted users.
 
-When users provide a Git repository on the spawn form, the existing init-container clone flow is reused. For code resources, the spawner points `AUPLC_CODE_WORKDIR` at the cloned directory so code-server opens the repository workspace.
+When users provide a Git repository on the spawn form, the existing init-container clone flow is reused. For resources with `launchMode: code-server`, the spawner points `AUPLC_CODE_WORKDIR` and the code-server `folder` URL parameter at the cloned directory so code-server opens the repository workspace.
 
 ## Extensions
 

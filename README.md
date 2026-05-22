@@ -143,7 +143,7 @@ Current environments are configured via `custom.resources.images` in `runtime/va
 | LLM COURSE  | `ghcr.io/amdresearch/auplc-llm`   | GPU                |
 | PhySim COURSE | `ghcr.io/amdresearch/auplc-physim` | GPU               |
 
-The `auplc-default`, `auplc-base`, and `Course-*` images remain notebook and course focused. Browser-based coding is provided by generic code-server images instead of per-course VS Code image variants. Use `code-cpu` for CPU-only coding workspaces and `code-gpu` for GPU-accelerated coding workspaces.
+The `auplc-default`, `auplc-base`, and `Course-*` images remain notebook and course focused. Browser-based coding is provided by generic code-server images instead of per-course VS Code image variants. Resources launch code-server when their `custom.resources.metadata.<resource>.launchMode` is set to `code-server`; the default configuration uses `code-cpu` for CPU-only coding workspaces and `code-gpu` for GPU-accelerated coding workspaces.
 
 Build the generic coding images from the repository root with:
 
