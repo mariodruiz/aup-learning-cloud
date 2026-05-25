@@ -8,11 +8,38 @@ public_port="${PORT:-8888}"
 code_server_port="${AUPLC_CODE_SERVER_PORT:-8889}"
 service_prefix="${JUPYTERHUB_SERVICE_PREFIX:-/}"
 workdir="${AUPLC_CODE_WORKDIR:-/home/jovyan}"
-extensions_dir="${AUPLC_CODE_EXTENSIONS_DIR:-/opt/auplc/code-server/extensions}"
+extensions_list="${AUPLC_CODE_EXTENSIONS_LIST:-/opt/auplc/extensions/extensions.txt}"
+local_extensions_dir="${AUPLC_CODE_LOCAL_EXTENSIONS_DIR:-/opt/auplc/extensions/local}"
+extensions_dir="${AUPLC_CODE_EXTENSIONS_DIR:-/home/jovyan/.local/share/code-server/extensions}"
 
 url_decode() {
   local value="${1//+/ }"
   printf '%b' "${value//%/\\x}"
+}
+
+seed_builtin_extensions() {
+  mkdir -p "${extensions_dir}"
+
+  if [ -f "${extensions_list}" ]; then
+    while IFS= read -r extension_id || [ -n "${extension_id}" ]; do
+      case "${extension_id}" in
+        ''|'#'*) continue ;;
+        *) ;;
+      esac
+
+      if ! code-server --extensions-dir "${extensions_dir}" --install-extension "${extension_id}" --force; then
+        printf 'Warning: failed to install code-server extension %s\n' "${extension_id}" >&2
+      fi
+    done <"${extensions_list}"
+  fi
+
+  if [ -d "${local_extensions_dir}" ]; then
+    while IFS= read -r -d '' vsix_path; do
+      if ! code-server --extensions-dir "${extensions_dir}" --install-extension "${vsix_path}"; then
+        printf 'Warning: failed to install code-server extension package %s\n' "${vsix_path}" >&2
+      fi
+    done < <(find "${local_extensions_dir}" -type f -name '*.vsix' -print0)
+  fi
 }
 
 case "${service_prefix}" in
@@ -29,6 +56,8 @@ nginx_prefix="$(url_decode "${service_prefix}")"
 regex_prefix="$(printf '%s' "${nginx_prefix}" | sed 's/[.[\*^$()+?{}|]/\\&/g')"
 nginx_conf="/tmp/auplc-code-server-nginx.conf"
 redirect_block=""
+
+seed_builtin_extensions
 
 if [ "${service_prefix}" != "/" ]; then
   redirect_block="

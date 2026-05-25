@@ -66,10 +66,15 @@ JupyterHub and NodePort-style local URLs.
 Git is installed in the image so cloned projects can use source control from the
 integrated terminal and editor UI without additional setup.
 
-Extensions are installed into `/opt/auplc/code-server/extensions` and code-server
-is launched with `--extensions-dir` pointing there. This keeps image-baked
-extensions available when Kubernetes mounts a persistent volume over
-`/home/jovyan`.
+Extensions are installed into `/opt/auplc/code-server/extensions` during image
+build. At runtime, code-server uses the persistent user extension directory
+`/home/jovyan/.local/share/code-server/extensions` by default. Before
+code-server starts, the launcher seeds the default extension IDs from
+`/opt/auplc/extensions/extensions.txt` into that persistent directory by calling
+`code-server --install-extension`. Marketplace extensions are installed with
+`--force` so code-server handles upgrades instead of the launcher comparing
+versions itself; local `.vsix` packages are installed without `--force` to avoid
+downgrading a user-installed newer copy.
 
 `--auth none` is acceptable only because JupyterHub and the JupyterHub proxy remain the authentication boundary. The user pod's port `8888` must stay private to the Hub/proxy path and must not be exposed directly through an unauthenticated service, ingress, or port-forward shared with untrusted users.
 
@@ -91,6 +96,12 @@ charliermarsh.ruff
 This baseline keeps Python and Jupyter support for course work, Debugpy for Python debugging, and Ruff for Python linting and formatting. YAML is retained so users can read and edit course, Kubernetes, and other configuration files without adding their own support first. GitLens is retained on purpose so researchers can learn Git history, blame, and commit discipline inside the same workspace they use for code.
 
 Extension versions are not pinned in this iteration. code-server resolves the current compatible extension releases during each image build, while only the code-server package itself is pinned.
+
+User-installed extensions are kept under the user's persistent home volume. When
+a new image adds a default extension, existing users receive it on their next
+code-server start. Existing marketplace extensions from `extensions.txt` are
+updated by code-server's own installer. The launcher does not parse extension
+directories or compare semantic versions itself.
 
 Default editor settings are also not baked into the image in this iteration. User workspaces and profiles should keep control over editor preferences.
 
