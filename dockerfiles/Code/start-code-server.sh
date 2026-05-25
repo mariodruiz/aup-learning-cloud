@@ -53,7 +53,7 @@ case "${service_prefix}" in
 esac
 
 nginx_prefix="$(url_decode "${service_prefix}")"
-regex_prefix="$(printf '%s' "${nginx_prefix}" | sed 's/[.[\*^$()+?{}|]/\\&/g')"
+regex_prefix="$(printf '%s' "${nginx_prefix}" | sed "s/[.[\\*^\$()+?{}|]/\\\\&/g")"
 nginx_conf="/tmp/auplc-code-server-nginx.conf"
 redirect_block=""
 
