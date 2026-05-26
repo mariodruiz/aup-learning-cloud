@@ -244,7 +244,15 @@ jobs:
       (
         needs.changes.outputs.is-tag == 'true' ||
         (github.event_name != 'workflow_dispatch' && (needs.changes.outputs.code == 'true' || needs.changes.outputs.base-cpu == 'true')) ||
-        (github.event_name == 'workflow_dispatch' && (github.event.inputs.images == 'all' || github.event.inputs.images == 'code' || github.event.inputs.images == 'code-cpu' || github.event.inputs.images == 'base-cpu'))
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (
+            github.event.inputs.images == 'all' ||
+            github.event.inputs.images == 'code' ||
+            github.event.inputs.images == 'code-cpu' ||
+            github.event.inputs.images == 'base-cpu'
+          )
+        )
       )
     runs-on: ubuntu-latest
     steps:
@@ -369,7 +377,15 @@ jobs:
       (
         needs.changes.outputs.is-tag == 'true' ||
         (github.event_name != 'workflow_dispatch' && (needs.changes.outputs.code == 'true' || needs.changes.outputs.base-gpu == 'true')) ||
-        (github.event_name == 'workflow_dispatch' && (github.event.inputs.images == 'all' || github.event.inputs.images == 'code' || github.event.inputs.images == 'code-gpu' || github.event.inputs.images == 'base-gpu'))
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (
+            github.event.inputs.images == 'all' ||
+            github.event.inputs.images == 'code' ||
+            github.event.inputs.images == 'code-gpu' ||
+            github.event.inputs.images == 'base-gpu'
+          )
+        )
       )
     runs-on: ubuntu-latest
     strategy:
