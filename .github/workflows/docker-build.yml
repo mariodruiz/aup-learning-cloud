@@ -67,6 +67,7 @@ on:
           - gfx110x
           - gfx1150
           - gfx1151
+          - gfx1152
           - gfx120x
 
 # Build matrix is defined in .github/build-config.json
@@ -489,9 +490,9 @@ jobs:
   # ──────────────────────────────────────────────
   # Base GPU Image (multi-target via GPU_TARGET)
   #
-  # No GPU hardware required — only downloads ROCm tarball + pip wheels.
+  # No GPU hardware required — only installs ROCm apt packages + pip wheels.
   # Uses free-disk-space action to reclaim runner disk for the large image.
-  # Builds 5 GPU targets in parallel via matrix strategy.
+  # Builds GPU targets in parallel via matrix strategy.
   # ──────────────────────────────────────────────
   build-base-gpu:
     name: "Build Base GPU Image (${{ matrix.gpu_target }})"
@@ -622,7 +623,7 @@ jobs:
   # BASE_IMAGE build-arg overrides the default so course images
   # can track the latest GPU base image version from CI.
   #
-  # Each course is built for all 5 GPU targets (course × gpu_target matrix).
+  # Each course is built for every configured GPU target (course × gpu_target matrix).
   # ──────────────────────────────────────────────
   build-courses:
     name: "Build Course: ${{ matrix.course }} (${{ matrix.gpu_target }})"
