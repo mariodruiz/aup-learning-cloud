@@ -25,7 +25,7 @@ SOFTWARE.
 
 Multi-target ROCm GPU base image. Set `GPU_TARGET` to build for any supported architecture.
 `Dockerfile.rocm` tracks the current course-image baseline: ROCm 7.13.0 Core SDK
-from AMD's multi-arch apt repository, plus ROCm-enabled PyTorch wheels.
+from AMD's Ubuntu 24.04 apt repository, plus ROCm-enabled PyTorch wheels.
 
 ### Supported Targets
 

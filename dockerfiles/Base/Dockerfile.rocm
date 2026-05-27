@@ -37,7 +37,7 @@ ARG NB_GID=100
 #   gfx1152       RDNA 3.5 — Ryzen AI 300-series iGPU
 #   gfx120x       RDNA 4   — Radeon 9x series (dGPU)
 #
-# ROCm 7.13 ships TheRock Core SDK packages in the multi-arch apt repo.
+# ROCm 7.13 ships TheRock Core SDK packages in the Ubuntu apt repo.
 # GPU_TARGET selects the image tag and PyTorch wheel bucket; ROCM_SDK_TARGET
 # selects the concrete apt SDK package for size-conscious installs.
 ARG GPU_TARGET=gfx1151
@@ -94,7 +94,7 @@ RUN mkdir -p /etc/apt/keyrings && \
     gpg --dearmor -o /etc/apt/keyrings/amdrocm.gpg
 
 # Add AMD ROCm apt repository (Ubuntu 24.04)
-RUN echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/amdrocm.gpg] https://repo.amd.com/rocm/packages-multi-arch/ubuntu2404 stable main' \
+RUN echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/amdrocm.gpg] https://repo.amd.com/rocm/packages/ubuntu2404 stable main' \
     > /etc/apt/sources.list.d/rocm.list
 
 # Install ROCm from apt.
