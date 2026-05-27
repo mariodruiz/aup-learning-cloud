@@ -36,7 +36,7 @@ The simplest way to deploy AUP Learning Cloud on a single machine in a developme
 - **Hardware**: AMD Ryzen™ AI Halo Device (e.g., AI Max+ 395, AI Max 390)
 - **Memory**: 32GB+ RAM (64GB recommended)
 - **Storage**: 500GB+ SSD
-- **OS**: Ubuntu 24.04.3 LTS
+- **OS**: Ubuntu 24.04.4 LTS
 - **Docker**: Install Docker and configure for non-root access
 
 ```bash
@@ -56,7 +56,7 @@ newgrp docker
 sudo apt install build-essential
 ```
 
-> **Kernel note**: The OEM kernel package follows AMD ROCm's Ryzen APU installation guidance for Ubuntu 24.04. See the [ROCm installation guide for Ryzen APUs](https://rocm.docs.amd.com/en/7.12.0/install/rocm.html?fam=ryzen&gpu=max-pro-395&os=ubuntu&os-version=24.04&i=pkgman) for details.
+> **Kernel note**: The OEM kernel package follows AMD ROCm's Ryzen APU installation guidance for Ubuntu 24.04. See the [ROCm 7.13.0 preview installation guide for Ryzen APUs](https://rocm.docs.amd.com/en/7.13.0-preview/install/rocm.html?fam=ryzen&w=compute&os=ubuntu&ubuntu-ver=24.04&i=pkgman&gpu=max-pro-395&gfx=gfx1151) for details.
 >
 > **Docker note**: See [Docker Post-installation Steps](https://docs.docker.com/engine/install/linux-postinstall/) and [Install Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/) for details.
 
