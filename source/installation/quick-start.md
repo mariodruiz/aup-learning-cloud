@@ -147,4 +147,5 @@ So the default local experience is a simple HTTP NodePort deployment.
 ## Next Steps
 
 - For all installer subcommands, TUI prompts, and runtime workflows, see [Single-Node Deployment](single-node.md)
+- To add a course or change deployment settings after install, see [Customizing a Single-Node Deployment](customizing-deployment.md)
 - For auth and resource configuration, see [JupyterHub Configuration](../jupyterhub/index.md)

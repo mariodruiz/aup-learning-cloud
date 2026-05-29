@@ -261,7 +261,7 @@ This is useful when you only changed the Hub or a specific course image.
 - `runtime/values.yaml` - repository default deployment values
 - `runtime/values.local.yaml` - installer-generated local overlay
 
-The installer-generated overlay captures detected accelerator selectors and image tags for the local machine. Prefer editing `runtime/values.yaml` for intentional site configuration, then redeploy with:
+The installer-generated overlay captures detected accelerator selectors and image tags for the local machine. **Do not use it to add courses or change site policy**—see [Customizing a Single-Node Deployment](customizing-deployment.md). Prefer editing `runtime/values.yaml` for intentional site configuration, then redeploy with:
 
 ```bash
 ./auplc-installer rt upgrade
