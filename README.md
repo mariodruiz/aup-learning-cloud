@@ -33,14 +33,15 @@ AUP Learning Cloud is a tailored JupyterHub deployment designed to provide an in
 The simplest way to deploy AUP Learning Cloud on a single machine in a development or demo environment.
 
 ### Prerequisites
-- **Hardware**: AMD Ryzen™ AI Halo Device (e.g., AI Max+ 395, AI Max 390)
+- **Hardware**: Supported **Ryzen AI 300 series and above** APUs and **Radeon 9000 series** PCIe GPUs.
 - **Memory**: 32GB+ RAM (64GB recommended)
 - **Storage**: 500GB+ SSD
 - **OS**: Ubuntu 24.04.3 LTS
 - **Docker**: Install Docker and configure for non-root access
+- **TUI deps**: `python3-questionary` and `python3-prompt-toolkit` (apt) for the recommended interactive installer; conda/venv users use `pip install questionary prompt_toolkit`
 
 ```bash
-# Install the OEM kernel for AMD Ryzen-series APU ROCm support (reboot required)
+# Ryzen AI APU only: OEM kernel for ROCm on Ubuntu 24.04 (reboot required)
 sudo apt update && sudo apt install linux-image-6.14.0-1018-oem
 
 # Install Docker
@@ -54,11 +55,16 @@ newgrp docker
 
 # Install Build Tools
 sudo apt install build-essential
+
+# TUI dependencies (required for the recommended interactive install)
+sudo apt install python3-questionary python3-prompt-toolkit
 ```
 
-> **Kernel note**: The OEM kernel package follows AMD ROCm's Ryzen APU installation guidance for Ubuntu 24.04. See the [ROCm installation guide for Ryzen APUs](https://rocm.docs.amd.com/en/7.12.0/install/rocm.html?fam=ryzen&gpu=max-pro-395&os=ubuntu&os-version=24.04&i=pkgman) for details.
+> **Kernel note** (Ryzen AI APU only): The OEM kernel package follows AMD ROCm's Ryzen APU installation guidance for Ubuntu 24.04. See the [ROCm installation guide for Ryzen APUs](https://rocm.docs.amd.com/en/7.12.0/install/rocm.html?fam=ryzen&gpu=max-pro-395&os=ubuntu&os-version=24.04&i=pkgman) for details. Radeon dGPU systems typically use the stock Ubuntu kernel—check ROCm docs for your GPU.
 >
 > **Docker note**: See [Docker Post-installation Steps](https://docs.docker.com/engine/install/linux-postinstall/) and [Install Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/) for details.
+>
+> **TUI note**: **System Python (apt):** install `python3-questionary` and `python3-prompt-toolkit` as shown above. **Conda or virtualenv users:** use `pip install questionary prompt_toolkit` inside your active environment instead of the apt packages. These are required for the interactive TUI; non-interactive `./auplc-installer install` does not need them.
 
 ### Installation
 
@@ -67,7 +73,6 @@ sudo apt install build-essential
 ```bash
 git clone https://github.com/AMDResearch/aup-learning-cloud.git
 cd aup-learning-cloud
-sudo apt install python3-questionary   # optional; improves the TUI prompts
 ./auplc-installer                      # pick Install, accept defaults, set Image tag to develop
 ```
 
