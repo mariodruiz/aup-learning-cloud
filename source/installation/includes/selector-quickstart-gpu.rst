@@ -112,6 +112,6 @@
    .. code-block:: bash
 
       git clone https://github.com/AMDResearch/aup-learning-cloud.git
-      cd aup-learning-cloud && chmod +x auplc-installer
+      cd aup-learning-cloud
 
-      sudo ./auplc-installer install --gpu=rdna4
+      ./auplc-installer install --gpu=rdna4
