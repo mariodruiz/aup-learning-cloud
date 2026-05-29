@@ -162,6 +162,14 @@ class InstallDryRunTests(unittest.TestCase):
         out = buf.getvalue()
         self.assertIn("  Image source     : pull", out)
 
+    def test_help_flag_prints_usage(self) -> None:
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            main(["--help"])
+        out = buf.getvalue()
+        self.assertIn("Usage: ./auplc-installer", out)
+        self.assertIn("install --dry-run", out)
+
     @patch("auplc_installer.cli._resolve_source_root")
     @patch("auplc_installer.cli.InstallerState.from_environment")
     def test_main_install_dry_run(self, mock_from_env, mock_root) -> None:

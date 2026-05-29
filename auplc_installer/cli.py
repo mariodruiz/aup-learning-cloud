@@ -723,6 +723,13 @@ def _resolve_source_root() -> Path:
 
 def main(argv: Sequence[str] | None = None) -> None:
     argv = list(argv) if argv is not None else sys.argv[1:]
+
+    # Custom help text (add_help=False on the parser). Intercept -h/--help
+    # before argparse runs so `./auplc-installer --help` works as users expect.
+    if any(tok in ("-h", "--help") for tok in argv):
+        show_help()
+        return
+
     parser = _build_parser()
 
     # Argparse refuses positional + --foo=bar interleaving in some edge
