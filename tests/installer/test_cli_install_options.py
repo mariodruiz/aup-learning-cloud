@@ -21,6 +21,7 @@ from auplc_installer.summary import (
     normalize_image_source,
     resolve_install_image_source,
 )
+from auplc_installer.util import InstallerError
 
 
 class NormalizeImageSourceTests(unittest.TestCase):
@@ -32,7 +33,7 @@ class NormalizeImageSourceTests(unittest.TestCase):
         self.assertEqual(normalize_image_source("build"), IMAGE_SOURCE_BUILD)
 
     def test_unknown_raises(self) -> None:
-        with self.assertRaises(Exception):
+        with self.assertRaises(InstallerError):
             normalize_image_source("nope")
 
 
@@ -78,7 +79,7 @@ class ResolveInstallImageSourceTests(unittest.TestCase):
         self.assertIn("Offline bundle", label)
 
     def test_unknown_source_raises(self) -> None:
-        with self.assertRaises(Exception):
+        with self.assertRaises(InstallerError):
             resolve_install_image_source(image_source="nope", legacy_pull=False)
 
 
