@@ -43,7 +43,7 @@ endif
 .PHONY: all base base-cpu base-rocm base-gfx1151 hub code code-cpu code-gpu courses cv dl llm physim
 
 # Build all images
-all: base hub courses
+all: base hub code courses
 
 # --- Base Images ---
 base: base-cpu base-rocm
