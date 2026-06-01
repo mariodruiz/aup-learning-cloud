@@ -34,10 +34,7 @@ class ParseSelectionSpecTests(unittest.TestCase):
         self.assertFalse(sel.is_default())  # explicit selection, not the default sentinel
 
     def test_basic_keyword_picks_cpu_gpu_and_code_server(self) -> None:
-        self.assertEqual(
-            parse_selection_spec("basic").picks,
-            ["cpu", "gpu", "code-cpu", "code-gpu"],
-        )
+        self.assertEqual(parse_selection_spec("basic").picks, list(COURSE_PRESET_BASIC))
 
     def test_none_keyword_uses_sentinel(self) -> None:
         sel = parse_selection_spec("none")
