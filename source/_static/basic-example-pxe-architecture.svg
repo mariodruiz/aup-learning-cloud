@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 720" role="img" aria-labelledby="title desc">
+  <title id="title">Basic example PXE netboot architecture</title>
+  <desc id="desc">The service AIPC and the netboot agents all sit in one LAN, a single L2 broadcast domain served by an existing DHCP server. The service AIPC provides PXE, NFS rootfs, HTTP K3s credentials, and a K3s server. Two or more AIPC agents netboot from the service machine and join the K3s server, and more agents can be added. AUP Learning Cloud, the application layer, runs on the cluster. An optional separate NFS-backed StorageClass provides persistent volumes for notebooks and is distinct from the PXE NFS rootfs.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-opt" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c"/>
+    </marker>
+    <marker id="arrow-dhcp" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <style>
+      svg {
+        background: #f3f4f6;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      .zone { fill: #faf5ff; stroke: #7c3aed; stroke-width: 2.5; }
+      .zone-title { fill: #6b21a8; font-size: 20px; font-weight: 700; }
+      .dhcp-box { fill: #ede9fe; stroke: #7c3aed; stroke-width: 2.5; }
+      .dhcp-title { fill: #6b21a8; font-size: 20px; font-weight: 700; }
+      .dhcp-text { fill: #7c3aed; font-size: 14px; font-weight: 600; }
+      .group { fill: #eef6ff; stroke: #2563eb; stroke-width: 2.5; }
+      .client-group { fill: #f8fafc; stroke: #94a3b8; stroke-width: 2.5; }
+      .box { fill: #ffffff; stroke: #64748b; stroke-width: 2.5; }
+      .service { fill: #f8fbff; }
+      .more-box { fill: #ffffff; stroke: #94a3b8; stroke-width: 2.5; stroke-dasharray: 7 5; }
+      .more-title { fill: #475569; font-size: 22px; font-weight: 700; }
+      .more-text { fill: #64748b; font-size: 15px; font-weight: 600; }
+      .app-box { fill: #ecfdf5; stroke: #059669; stroke-width: 2.5; }
+      .optional-box { fill: #fff7ed; stroke: #ea580c; stroke-width: 2.5; stroke-dasharray: 9 6; }
+      .node-title { fill: #0f172a; font-size: 22px; font-weight: 700; }
+      .node-text { fill: #334155; font-size: 16px; }
+      .app-title { fill: #065f46; font-size: 22px; font-weight: 700; }
+      .app-text { fill: #047857; font-size: 16px; font-weight: 600; }
+      .section-title { fill: #0f172a; font-size: 24px; font-weight: 700; }
+      .section-title-sm { fill: #0f172a; font-size: 20px; font-weight: 700; }
+      .opt-title { fill: #9a3412; font-size: 20px; font-weight: 700; }
+      .opt-text { fill: #c2410c; font-size: 15px; font-weight: 600; }
+      .line { fill: none; stroke: #334155; stroke-width: 2.6; marker-end: url(#arrow); }
+      .optional-line { fill: none; stroke: #ea580c; stroke-width: 2.6; stroke-dasharray: 9 6; marker-end: url(#arrow-opt); }
+      .dhcp-line { fill: none; stroke: #7c3aed; stroke-width: 2.6; marker-end: url(#arrow-dhcp); }
+      .label { fill: #0f172a; font-size: 18px; font-weight: 700; }
+      .opt-label { fill: #c2410c; font-size: 18px; font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect class="zone" x="30" y="55" width="890" height="490" rx="20"/>
+  <text class="zone-title" x="48" y="83">LAN: single L2 broadcast domain (existing DHCP serves IP addresses)</text>
+
+  <rect class="dhcp-box" x="375" y="100" width="210" height="70" rx="12"/>
+  <text class="dhcp-title" x="480" y="132" text-anchor="middle">LAN DHCP</text>
+  <text class="dhcp-text" x="480" y="156" text-anchor="middle">router / firewall (existing)</text>
+
+  <rect class="group" x="70" y="215" width="440" height="305" rx="18"/>
+  <text class="section-title" x="290" y="252" text-anchor="middle">AIPC 1: Service Machine</text>
+
+  <rect class="box service" x="100" y="288" width="185" height="85" rx="12"/>
+  <text class="node-title" x="192" y="326" text-anchor="middle">PXE Stack</text>
+  <text class="node-text" x="192" y="352" text-anchor="middle">Proxy-DHCP, TFTP</text>
+
+  <rect class="box service" x="315" y="288" width="185" height="85" rx="12"/>
+  <text class="node-title" x="407" y="326" text-anchor="middle">NFS Rootfs</text>
+  <text class="node-text" x="407" y="352" text-anchor="middle">/srv/nfs/rootfs</text>
+
+  <rect class="box service" x="100" y="420" width="185" height="85" rx="12"/>
+  <text class="node-title" x="192" y="458" text-anchor="middle">HTTP</text>
+  <text class="node-text" x="192" y="484" text-anchor="middle">/k3s/token</text>
+
+  <rect class="box service" x="315" y="420" width="185" height="85" rx="12"/>
+  <text class="node-title" x="407" y="458" text-anchor="middle">K3s Server</text>
+  <text class="node-text" x="407" y="484" text-anchor="middle">API :6443</text>
+
+  <rect class="client-group" x="690" y="232" width="218" height="290" rx="18"/>
+  <text class="section-title-sm" x="799" y="262" text-anchor="middle">PXE Netboot Agents</text>
+
+  <rect class="box" x="724" y="288" width="150" height="64" rx="12"/>
+  <text class="node-title" x="799" y="316" text-anchor="middle">AIPC 2</text>
+  <text class="node-text" x="799" y="338" text-anchor="middle">K3s agent</text>
+
+  <rect class="box" x="724" y="364" width="150" height="64" rx="12"/>
+  <text class="node-title" x="799" y="392" text-anchor="middle">AIPC 3</text>
+  <text class="node-text" x="799" y="414" text-anchor="middle">K3s agent</text>
+
+  <rect class="more-box" x="724" y="440" width="150" height="64" rx="12"/>
+  <text class="more-title" x="799" y="468" text-anchor="middle">AIPC 4 …</text>
+  <text class="more-text" x="799" y="490" text-anchor="middle">add more agents</text>
+
+  <rect class="optional-box" x="55" y="600" width="250" height="88" rx="12"/>
+  <text class="opt-title" x="180" y="632" text-anchor="middle">NFS StorageClass</text>
+  <text class="opt-text" x="180" y="654" text-anchor="middle">Optional, separate NFS</text>
+  <text class="opt-text" x="180" y="674" text-anchor="middle">export for notebook PVCs</text>
+
+  <rect class="app-box" x="400" y="600" width="255" height="88" rx="12"/>
+  <text class="app-title" x="527" y="638" text-anchor="middle">AUP Learning Cloud</text>
+  <text class="app-text" x="527" y="666" text-anchor="middle">App layer</text>
+
+  <path class="dhcp-line" d="M 430 170 C 382 187, 328 201, 297 213"/>
+  <path class="dhcp-line" d="M 545 170 C 655 186, 765 210, 797 230"/>
+
+  <path class="line" d="M 512 327 C 580 326, 630 326, 686 326"/>
+  <text class="label" text-anchor="middle">
+    <tspan x="599" y="287">netboot +</tspan>
+    <tspan x="599" y="307">token / kubeconfig</tspan>
+  </text>
+
+  <path class="line" d="M 720 396 C 645 420, 575 452, 502 466"/>
+  <text class="label" x="596" y="416" text-anchor="middle">k3s-agent join</text>
+
+  <path class="line" d="M 407 505 C 432 548, 482 572, 514 596"/>
+  <text class="label" x="438" y="580" text-anchor="middle">deploy</text>
+
+  <path class="optional-line" d="M 305 644 H 396"/>
+  <text class="opt-label" x="350" y="630" text-anchor="middle">PVCs</text>
+</svg>
