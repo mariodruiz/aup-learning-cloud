@@ -26,8 +26,7 @@ If your task is mainly notebook-based, use [JupyterLab Guide](jupyterlab-guide.m
 5. Click **Launch Server**.
 6. Wait for the browser to open the VS Code interface.
 
-<!-- TODO: Add screenshot of Code Server environment selection. -->
-<!-- ![Code Server selection](../_static/images/user-guide/code-server-selection.png) -->
+![Code Server selection](../_static/images/user-guide/code-server-selection.png)
 
 ## Interface Overview
 
@@ -37,8 +36,7 @@ The Code Server interface is similar to local VS Code:
 - Center: code editor
 - Bottom panel: Terminal, Ports, Output, Problems
 
-<!-- TODO: Add screenshot of the Code Server main interface. -->
-<!-- ![Code Server main interface](../_static/images/user-guide/code-server-main-interface.png) -->
+![Code Server main interface](../_static/images/user-guide/code-server-main-interface.png)
 
 ## Use The Terminal
 
@@ -88,16 +86,12 @@ python -m http.server 8080
 
 After the service starts:
 
-1. Look for a port forwarding notification in the lower-right corner.
-2. Click **Open in Browser** if the notification appears.
-3. Or open the **PORTS** panel and select the forwarded port.
+1. Open the **PORTS** panel.
+2. Select the forwarded port and open the forwarded address.
+3. If a notification appears, you can also click **Open in Browser**.
 4. If the port does not appear automatically, add it manually in the **PORTS** panel.
 
-<!-- TODO: Add screenshot of the port forwarding notification. -->
-<!-- ![Port forwarding notification](../_static/images/user-guide/port-forward-notification.png) -->
-
-<!-- TODO: Add screenshot of the PORTS panel. -->
-<!-- ![Ports panel](../_static/images/user-guide/ports-panel.png) -->
+![Ports panel](../_static/images/user-guide/ports-panel.png)
 
 Forwarded URLs usually follow this pattern:
 
@@ -134,8 +128,7 @@ To install an extension:
 2. Search for the extension name.
 3. Click **Install**.
 
-<!-- TODO: Add screenshot of the Extensions panel. -->
-<!-- ![Extensions panel](../_static/images/user-guide/extensions-panel.png) -->
+![Extensions panel](../_static/images/user-guide/extensions-panel.png)
 
 Recommended extensions for some workflows:
 
