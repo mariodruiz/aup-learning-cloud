@@ -25,8 +25,7 @@ If you need a full VS Code-style IDE, use [Code Server Guide](code-server-guide.
 5. Click **Launch Server**.
 6. Wait for the browser to open JupyterLab.
 
-<!-- TODO: Add screenshot of a JupyterLab environment selection. -->
-<!-- ![JupyterLab environment selection](../_static/images/user-guide/jupyterlab-selection.png) -->
+![JupyterLab environment selection](../_static/images/user-guide/jupyterlab-selection.png)
 
 ## Create A Notebook
 
@@ -41,8 +40,7 @@ Example:
 print("Hello, JupyterHub!")
 ```
 
-<!-- TODO: Add screenshot of JupyterLab Launcher and Python 3 notebook option. -->
-<!-- ![JupyterLab Launcher](../_static/images/user-guide/jupyterlab-launcher.png) -->
+![JupyterLab Launcher](../_static/images/user-guide/jupyterlab-launcher.png)
 
 ## Run Notebook Cells
 

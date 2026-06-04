@@ -22,8 +22,7 @@ Open the platform URL in your browser:
 https://www.openhw.io/
 ```
 
-<!-- TODO: Add screenshot of the platform login page. -->
-<!-- ![Platform login page](../_static/images/user-guide/platform-login-page.png) -->
+![Platform login page](../_static/images/user-guide/platform-login-page.png)
 
 ## Sign In
 
@@ -42,8 +41,7 @@ The platform can provide two login methods. Your administrator will tell you whi
 4. Approve the authorization request.
 5. After authorization, the browser returns to AUP Learning Cloud.
 
-<!-- TODO: Add screenshot of GitHub login and authorization. -->
-<!-- ![GitHub login](../_static/images/user-guide/github-login.png) -->
+![GitHub login](../_static/images/user-guide/github-login.png)
 
 ### Local Account Login
 
@@ -59,8 +57,7 @@ If you forget your local account password, contact the administrator.
 
 After login, the platform shows a resource selection page. The exact list depends on your course, account permissions, and available hardware.
 
-<!-- TODO: Add screenshot of the resource selection page. -->
-<!-- ![Resource selection page](../_static/images/user-guide/resource-selection-page.png) -->
+![Resource selection page](../_static/images/user-guide/resource-selection-page.png)
 
 Common resource categories include:
 
@@ -81,8 +78,7 @@ Common resource categories include:
 5. Wait for the server to start.
 6. The browser opens the selected interface, such as JupyterLab or Code Server.
 
-<!-- TODO: Add screenshot of runtime duration and Launch Server controls. -->
-<!-- ![Launch server](../_static/images/user-guide/launch-server.png) -->
+![Launch server](../_static/images/user-guide/launch-server.png)
 
 :::{important}
 When the runtime duration expires, the platform may stop the server. Files that are not saved in the persistent user directory can be lost.
@@ -118,8 +114,7 @@ When you finish working, stop your server to release shared resources.
 4. Click **Stop my server**.
 5. Wait until the server has stopped before closing the browser tab.
 
-<!-- TODO: Add screenshot of the Stop my server button. -->
-<!-- ![Stop my server](../_static/images/user-guide/stop-my-server.png) -->
+![Stop my server](../_static/images/user-guide/stop-my-server.png)
 
 :::{important}
 Closing the browser tab or logging out does not always stop the remote server. Use **Stop my server** when you are done.
