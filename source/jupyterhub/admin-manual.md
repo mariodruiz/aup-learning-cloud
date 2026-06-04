@@ -2,7 +2,7 @@
 
 This page summarizes the current administrator-facing workflows.
 
-For value-by-value configuration, use the [Configuration Reference](../jupyterhub/configuration-reference.md).
+For value-by-value configuration, use the [Configuration Reference](configuration-reference.md).
 
 ## Admin Surfaces
 
@@ -73,7 +73,7 @@ If quota is enabled, administrators can:
 - grant unlimited quota
 - inspect usage detail from the admin UI
 
-See [User Quota System](../jupyterhub/quota-system.md) for details.
+See [User Quota System](quota-system.md) for details.
 
 ### Update Login / Home Announcement
 
