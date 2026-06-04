@@ -1,20 +1,18 @@
 # User Guide
 
-This section provides guides for users and administrators of AUP Learning Cloud.
+This section provides end-user guides for AUP Learning Cloud.
 
 ```{toctree}
 :maxdepth: 2
 
-admin-manual
+platform-basics
+jupyterlab-guide
+code-server-guide
 ```
-
-## For Administrators
-
-- {doc}`admin-manual` - Comprehensive guide for system administrators
 
 ## For Users
 
-End-user topics are summarized in **Quick Links** below. For login and authentication, see the [Authentication Guide](../jupyterhub/authentication-guide.md). Your administrator can provide the JupyterHub URL; once logged in you can:
+Start with [Platform Basics](platform-basics.md) for login, environment selection, storage, and server lifecycle. Then use [JupyterLab Guide](jupyterlab-guide.md) or [Code Server Guide](code-server-guide.md) depending on the environment you launch. For authentication details, see the [Authentication Guide](../jupyterhub/authentication-guide.md). Your administrator can provide the JupyterHub URL; once logged in you can:
 
 - Launch notebook environments (Base CPU, GPU Base, CV/DL/LLM/PhySim courses)
 - Use hardware acceleration options (CPU, GPU) as allowed for your account
