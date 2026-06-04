@@ -58,8 +58,17 @@ kubectl -n monitoring get svc
 
 Wait until the Prometheus Operator, Prometheus, and Grafana pods are running.
 
-<!-- TODO: Add screenshot of kube-prometheus-stack pods running in the monitoring namespace. -->
-<!-- ![Monitoring Pods](./images/monitoring-3-stack-pods.png) -->
+A working `kube-prometheus-stack` deployment should include pods similar to these:
+
+```text
+alertmanager-monitoring-kube-prometheus-alertmanager-0   2/2   Running
+monitoring-grafana-...                                  3/3   Running
+monitoring-kube-prometheus-operator-...                 1/1   Running
+monitoring-kube-state-metrics-...                       1/1   Running
+prometheus-monitoring-kube-prometheus-prometheus-0       2/2   Running
+```
+
+The exact pod names and replica counts depend on the chart version and your cluster configuration.
 
 ## Reuse an Existing Prometheus and Grafana Stack
 
@@ -161,8 +170,22 @@ Check that the AUPlC monitoring resources exist:
 kubectl -n monitoring get servicemonitor hub-metrics
 kubectl -n monitoring get secret | grep metrics-token
 kubectl -n monitoring get configmap grafana-dashboard-aup-hub
-kubectl -n monitoring get prometheusrule hub-alerts
 kubectl -n jupyterhub get networkpolicy hub-metrics
+```
+
+If `monitoring.prometheusRule.enabled: true`, also check the Hub alert rule:
+
+```bash
+kubectl -n monitoring get prometheusrule hub-alerts
+```
+
+A working cluster with ServiceMonitor, authenticated scraping, Grafana dashboards, and metrics NetworkPolicy enabled should show objects like this:
+
+```text
+servicemonitor.monitoring.coreos.com/hub-metrics
+secret/hub-metrics-token
+configmap/grafana-dashboard-aup-hub
+networkpolicy.networking.k8s.io/hub-metrics
 ```
 
 Check that Prometheus sees the Hub target:
@@ -173,19 +196,47 @@ kubectl -n monitoring port-forward svc/monitoring-kube-prometheus-prometheus 909
 
 Open `http://127.0.0.1:9090/targets` and look for the `hub-metrics` target. It should be `UP`.
 
-<!-- TODO: Add screenshot of the Prometheus Targets page with hub-metrics in UP status. -->
-<!-- ![Prometheus Hub Metrics Target](./images/monitoring-4-prometheus-target.png) -->
-
-Check that Grafana can load the dashboards:
+You can also verify from the Prometheus API. With the port-forward still running, query the Hub scrape target:
 
 ```bash
-kubectl -n monitoring port-forward svc/monitoring-grafana 3000:80
+curl -fsSL 'http://127.0.0.1:9090/api/v1/query?query=up%7Bjob%3D%22hub%22%7D'
 ```
 
-Open `http://127.0.0.1:3000` and look for the AUP Hub dashboards. The exact Grafana credentials depend on your monitoring stack configuration.
+A healthy result contains `"job":"hub"`, `"namespace":"jupyterhub"`, and a final value of `"1"`:
 
-<!-- TODO: Add screenshot of the AUP Hub Operations Grafana dashboard. -->
-<!-- ![AUP Hub Grafana Dashboard](./images/monitoring-5-grafana-dashboard.png) -->
+```json
+{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {
+          "job": "hub",
+          "namespace": "jupyterhub",
+          "service": "hub"
+        },
+        "value": ["<timestamp>", "1"]
+      }
+    ]
+  }
+}
+```
+
+Check that Grafana can discover the AUPlC dashboards through the dashboard ConfigMap:
+
+```bash
+kubectl -n monitoring describe configmap grafana-dashboard-aup-hub
+```
+
+The ConfigMap should contain these dashboard files:
+
+```text
+aup-hub-operations.json
+aup-hub-notebook-resources.json
+```
+
+If your Grafana deployment uses the standard sidecar dashboard loader, these ConfigMaps are enough. You do not need to expose Grafana publicly just to validate this step.
 
 Useful AUPlC Hub metrics include:
 
