@@ -9,6 +9,7 @@ configuration-reference
 README
 authentication-guide
 user-management
+admin-manual
 quota-system
 github-oauth-setup
 ```
@@ -19,5 +20,6 @@ github-oauth-setup
 - {doc}`README` - Quick setup notes for runtime/values.yaml
 - {doc}`authentication-guide` - Setup authentication
 - {doc}`user-management` - Manage users
+- {doc}`admin-manual` - Run common administrator workflows
 - {doc}`quota-system` - Configure quotas
 - {doc}`github-oauth-setup` - GitHub OAuth setup
