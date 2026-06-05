@@ -17,9 +17,11 @@ MIRROR_PIP ?=
 MIRROR_NPM ?=
 
 # GPU target architecture (short AMD apt-repo name; e.g. gfx110x, gfx1150,
-# gfx1151, gfx120x). Dockerfile.rocm maps this to the corresponding pip
+# gfx1151, gfx1152, gfx120x). Dockerfile.rocm maps this to the corresponding pip
 # wheel path (gfx110X-all / gfx120X-all for the RDNA 3 / RDNA 4 buckets).
 GPU_TARGET ?= gfx1151
+
+ROCM_SDK_TARGET ?= $(GPU_TARGET)
 
 # GPU base image used by course Dockerfiles (override to track a specific version)
 GPU_BASE_IMAGE ?= ghcr.io/amdresearch/auplc-base:latest
@@ -41,7 +43,7 @@ endif
 .PHONY: all base base-cpu base-rocm base-gfx1151 hub code code-cpu code-gpu courses cv dl llm physim
 
 # Build all images
-all: base hub courses
+all: base hub code courses
 
 # --- Base Images ---
 base: base-cpu base-rocm
@@ -63,6 +65,7 @@ base-rocm:
 
 	cd Base && docker build $(BUILD_ARGS) \
 		--build-arg GPU_TARGET=$(GPU_TARGET) \
+		--build-arg ROCM_SDK_TARGET=$(ROCM_SDK_TARGET) \
 		$(if $(MIRROR_PREFIX),--build-arg BASE_IMAGE=$(MIRROR_PREFIX)/docker.io/library/ubuntu:24.04,) \
 		-t ghcr.io/amdresearch/auplc-base:latest --file Dockerfile.rocm .
 	docker tag ghcr.io/amdresearch/auplc-base:latest ghcr.io/amdresearch/auplc-base:latest-$(GPU_TARGET)
@@ -93,7 +96,7 @@ code-cpu:
 
 	cd Code && IMAGE_FLAVOR=cpu \
 		BASE_IMAGE=ghcr.io/amdresearch/auplc-default:latest \
-		NODE_IMAGE="$(if $(MIRROR_PREFIX),$(MIRROR_PREFIX)/docker.io/library/node:20-bookworm-slim,)" \
+		NODE_IMAGE="$(if $(MIRROR_PREFIX),$(MIRROR_PREFIX)/docker.io/library/node:22-bookworm-slim,)" \
 		NPM_REGISTRY="$(MIRROR_NPM)" \
 		bash ./build.sh
 	$(MAKE) save-image IMAGE=ghcr.io/amdresearch/auplc-code-cpu:latest
@@ -105,7 +108,7 @@ code-gpu:
 
 	cd Code && IMAGE_FLAVOR=gpu \
 		BASE_IMAGE=$(CODE_GPU_BASE_IMAGE) \
-		NODE_IMAGE="$(if $(MIRROR_PREFIX),$(MIRROR_PREFIX)/docker.io/library/node:20-bookworm-slim,)" \
+		NODE_IMAGE="$(if $(MIRROR_PREFIX),$(MIRROR_PREFIX)/docker.io/library/node:22-bookworm-slim,)" \
 		NPM_REGISTRY="$(MIRROR_NPM)" \
 		bash ./build.sh
 	docker tag ghcr.io/amdresearch/auplc-code-gpu:latest ghcr.io/amdresearch/auplc-code-gpu:latest-$(GPU_TARGET)
