@@ -27,7 +27,7 @@ The netbooted agents follow this boot path:
 5. The kernel mounts the read-only NFS rootfs from `/srv/nfs/rootfs`.
 6. `overlayroot` provides a writable tmpfs layer.
 7. `set-hostname.service` sets the hostname to `agent-<MAC>`.
-8. `k3s-auto-join.service` fetches the K3s token from `http://<SERVICE_IP>/k3s/token` and joins the server at `https://<SERVICE_IP>:6443`.
+8. `k3s-auto-join.service` fetches the K3s token from `http://<SERVICE_IP>:8080/k3s/token` and joins the server at `https://<SERVICE_IP>:6443`.
 
 ## What To Prepare
 
@@ -80,6 +80,25 @@ Clone the repository on AIPC 1 and work from its root:
 git clone <REPO_URL> ~/aup-learning-cloud
 cd ~/aup-learning-cloud
 ```
+
+### Enable passwordless root SSH
+
+The inventory uses `ansible_user: root` (Step 2), so Ansible connects to the target as `root` over key-based SSH. Before running any playbook you must give `root` a passwordless SSH login, otherwise the very first task ("Gathering Facts") fails with `UNREACHABLE! ... Permission denied (publickey,password)`.
+
+Because AIPC 1 manages **itself** in this single-machine topology, authorise your own SSH key for the local `root` account:
+
+```bash
+sudo install -d -m 0700 /root/.ssh
+sudo tee -a /root/.ssh/authorized_keys < ~/.ssh/id_ed25519.pub >/dev/null
+sudo chmod 0600 /root/.ssh/authorized_keys
+
+# verify root SSH works without a password
+ssh root@<SERVICE_IP> true && echo root-ssh-ok
+```
+
+::::::{note}
+Because the service machine is also the Ansible target, you can avoid SSH entirely by telling Ansible to run on the local host. Add `ansible_connection: local` to the host vars in `inventory.yml` (Step 2); Ansible then executes tasks directly without an SSH round-trip and no root SSH setup is needed.
+::::::
 
 ## Step 2 — Configure The Inventory
 
@@ -153,27 +172,42 @@ The role builds the NFS rootfs, installs the agent boot services into it, pins a
 systemctl is-active dnsmasq nfs-kernel-server apache2
 showmount -e localhost
 ls -l /srv/tftp/pxelinux.0 /srv/tftp/grubnetx64.efi /srv/tftp/vmlinuz /srv/tftp/initrd.img
-curl -I http://127.0.0.1/k3s/
+curl -I http://127.0.0.1:8080/k3s/
 ```
 
-Expected: `dnsmasq`, `nfs-kernel-server`, and `apache2` are all `active`; `showmount` lists `/srv/nfs/rootfs` exported to your subnet; the four boot files exist under `/srv/tftp`; and `http://127.0.0.1/k3s/` returns `403` (the directory exists but is empty and not listable). The `token` endpoint is `404` until you publish it in Step 7.
+Expected: `dnsmasq`, `nfs-kernel-server`, and `apache2` are all `active`; `showmount` lists `/srv/nfs/rootfs` exported to your subnet; the four boot files exist under `/srv/tftp`; and `http://127.0.0.1:8080/k3s/` returns `403` (the directory exists but is empty and not listable). The `token` endpoint is `404` until you publish it in Step 7.
+
+::::::{note}
+The role serves the `/k3s/` credential endpoint on port **8080**, not 80. This lets the PXE controller share the host with k3s, whose Traefik / ServiceLB owns host ports 80/443 for cluster ingress. The port is set by `pxe_web_port` in the PXE playbook.
+::::::
 
 ## Step 6 — Install The Single-Node K3s Server
 
 Install the K3s server on AIPC 1 using the repo's existing k3s-ansible flow. With the `server` group pointing at AIPC 1 and the `agent` group empty (from Step 2), this installs a single-node master and configures `kubectl` for your user automatically.
 
+Run the playbooks **without** `sudo`. With key-based root SSH (Step 1), Ansible already connects as `root`; prefixing `sudo` would make it use the local machine's root SSH key instead and fail authentication.
+
 ```bash
 cd ~/aup-learning-cloud/deploy/ansible
-sudo ansible-playbook -i inventory.yml playbooks/pb-base.yml
-sudo ansible-playbook -i inventory.yml playbooks/pb-k3s-site.yml
+ansible-playbook -i inventory.yml playbooks/pb-base.yml
+ansible-playbook -i inventory.yml playbooks/pb-k3s-site.yml
+```
+
+The K3s server install configures `kubectl` for your user and writes `~/.kube/config`. Point `KUBECONFIG` at it once so every later `kubectl` / `helm` command works **without** `sudo` (add this to your `~/.bashrc` to make it stick):
+
+```bash
+export KUBECONFIG=~/.kube/config
 ```
 
 Verify the server is up and `kubectl` works:
 
 ```bash
-sudo k3s kubectl get nodes -o wide
 kubectl get nodes -o wide
 ```
+
+::::::{note}
+`kubectl get nodes -o wide` and `sudo k3s kubectl get nodes -o wide` are equivalent — the first uses your user `kubectl` against `~/.kube/config`, the second uses K3s' bundled `kubectl` against the root-only `/etc/rancher/k3s/k3s.yaml`. With `KUBECONFIG` exported as above, prefer the plain, `sudo`-free `kubectl` form throughout this guide.
+::::::
 
 ::::::{note}
 The netbooted agents are diskless and are intentionally **not** in the `agent` inventory group, so `pb-k3s-site.yml` only installs the server. The agents join later by netboot (Step 8), not through this playbook.
@@ -181,7 +215,7 @@ The netbooted agents are diskless and are intentionally **not** in the `agent` i
 
 ## Step 7 — Publish K3s Credentials For The Agents
 
-At boot, each agent's `k3s-auto-join.sh` fetches `http://<SERVICE_IP>/k3s/token` and `http://<SERVICE_IP>/k3s/kubeconfig`. Publish both through Apache:
+At boot, each agent's `k3s-auto-join.sh` fetches `http://<SERVICE_IP>:8080/k3s/token` and `http://<SERVICE_IP>:8080/k3s/kubeconfig`. Publish both through Apache:
 
 ```bash
 sudo install -d -m 0755 /var/www/html/k3s
@@ -200,8 +234,8 @@ sudo systemctl reload apache2
 Verify the endpoints respond:
 
 ```bash
-curl -fsS http://127.0.0.1/k3s/token >/dev/null && echo token-ok
-curl -fsS http://127.0.0.1/k3s/kubeconfig >/dev/null && echo kubeconfig-ok
+curl -fsS http://127.0.0.1:8080/k3s/token >/dev/null && echo token-ok
+curl -fsS http://127.0.0.1:8080/k3s/kubeconfig >/dev/null && echo kubeconfig-ok
 curl -kfsS https://<SERVICE_IP>:6443/ping
 ```
 
@@ -317,11 +351,15 @@ The PXE NFS rootfs is not the notebook storage backend. Create a separate NFS ex
 sudo mkdir -p <NFS_EXPORT>
 sudo chown -R nobody:nogroup <NFS_EXPORT>
 sudo chmod 0777 <NFS_EXPORT>
-echo "<NFS_EXPORT> <CLUSTER_SUBNET>(rw,sync,no_subtree_check,no_root_squash,insecure)" | sudo tee /etc/exports.d/auplc.conf
+echo "<NFS_EXPORT> <CLUSTER_SUBNET>(rw,sync,no_subtree_check,no_root_squash,insecure)" | sudo tee -a /etc/exports
 sudo exportfs -ra
 sudo systemctl restart nfs-kernel-server
 showmount -e localhost
 ```
+
+::::::{note}
+Append the export to `/etc/exports` directly. On Ubuntu 24.04 the `/etc/exports.d/` directory does not exist by default, and `exportfs` only reads files there that end in `.exports` (see `man exports`) — a `.conf` file is silently ignored, so the export never takes effect and notebook PVCs stay `Pending`. Confirm the new line appears in `showmount -e localhost` before continuing.
+::::::
 
 Create local Helm values for the NFS provisioner from the shipped example and install it:
 
@@ -359,7 +397,7 @@ At minimum set the auth mode, the GPU node selector to match your real labels, t
 
 ```yaml
 custom:
-  authMode: "dummy"
+  authMode: "auto-login"
   accelerators:
     strix-halo:
       nodeSelector:
@@ -386,6 +424,10 @@ proxy:
     nodePorts:
       http: 30890
 ```
+
+::::::{note}
+Use `authMode: "auto-login"` for this single-machine example — it is the chart's intended single-node default (see the comments in `runtime/chart/values.yaml`) and drops you straight in as the `student` user. Avoid `authMode: "dummy"` here: its login form posts to `/hub/native/login`, which is not loaded in dummy mode, so the login returns `404` and you cannot sign in.
+::::::
 
 ::::::{warning}
 Do not reuse a site-specific values override as-is. It may contain real hostnames, OAuth settings, image tags, or registry credentials that must be replaced. For a private registry, create the image pull secret in the `jupyterhub` namespace before installing the chart.
@@ -445,7 +487,7 @@ kubectl describe pod <USER_POD_NAME> -n jupyterhub
 | Agent gets an IP but cannot load boot files | TFTP blocked, missing files, or UEFI Secure Boot still enabled | Check `/srv/tftp`, firewall rules, that Secure Boot is disabled, and `dnsmasq` logs |
 | Agent has no network during netboot | Agent NIC has no in-kernel driver in the initramfs | Identify the NIC with `lspci -nnk`, add its in-kernel module to `pxe_initramfs_modules`, and rebuild the rootfs |
 | Agent kernel boots but cannot mount rootfs | NFS export, subnet ACL, or wrong `pxe_controller_ip` | Check `showmount -e <SERVICE_IP>`, `/etc/exports`, and the rootfs kernel args |
-| Agent waits for the K3s token | Token not published or Apache ACL blocks the client subnet | Check `curl http://<SERVICE_IP>/k3s/token` and the Apache config |
+| Agent waits for the K3s token | Token not published or Apache ACL blocks the client subnet | Check `curl http://<SERVICE_IP>:8080/k3s/token` and the Apache config |
 | Agent joins once but fails after reboot | Missing local K3s persistence or lost node password | Check `mount-local-disk`, `/var/lib/rancher/k3s/node-password`, and `k3s-agent` logs |
 | Agent fails to join with a version error | Agent rootfs k3s version newer than the server | Align `pxe_k3s_version` with the server `k3s_version` and rebuild the rootfs |
 | GPU notebook stays Pending | Chart `nodeSelector` does not match real labels, or GPUs are exhausted | Check `kubectl describe pod <pod> -n jupyterhub` and the node labels |
