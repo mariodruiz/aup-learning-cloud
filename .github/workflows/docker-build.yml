@@ -708,7 +708,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Free disk space
+      - name: Free disk space for course image build
         uses: jlumbroso/free-disk-space@main
         with:
           tool-cache: true
@@ -823,6 +823,6 @@ jobs:
           cache-to: type=gha,mode=max,scope=course-${{ matrix.course }}-${{ matrix.gpu_target }}
           provenance: false
 
-      - name: Clean course build context
+      - name: Clean ${{ matrix.course }} build context
         if: always()
         run: rm -rf dockerfiles/Courses/${{ matrix.course }}/course_data
