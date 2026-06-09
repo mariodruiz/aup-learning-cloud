@@ -154,6 +154,9 @@ custom:
   #      - Permissions: Contents (read-only), Metadata (read-only), Members (read-only)
   #      - Webhook: off
   #   2. Update hub.config.GitHubOAuthenticator:
+  #        app_id: "<GitHub App App ID>"
+  #        installation_id: "<GitHub App Installation ID>"
+  #        private_key_file: "<Mounted GitHub App private key path>"
   #        client_id: "<GitHub App Client ID>"
   #        client_secret: "<GitHub App Client Secret>"
   #        scope: []  # GitHub App does not use OAuth scopes
@@ -463,7 +466,11 @@ hub:
     # ---- GitHub OAuth ----
     GitHubOAuthenticator:
       oauth_callback_url: "https://<Your.domain>/hub/github/oauth_callback"
-      app_id: "TODO"
+      app_id: ""
+      installation_id: ""
+      private_key_file: ""
+      private_key: ""
+      team_sync_ttl_seconds: 3600
       client_id: "TODO"
       client_secret: "TODO"
       allowed_organizations:
