@@ -70,24 +70,6 @@ class CustomGitHubOAuthenticator(GitHubOAuthenticator):
         if expires_in is not None:
             result["auth_state"]["expires_at"] = time.time() + int(expires_in)
 
-        # Fetch GitHub team memberships and store in auth_state for group sync
-        access_token = result["auth_state"].get("access_token")
-        if access_token:
-            from core import z2jh
-            from core.groups import fetch_github_teams
-
-            allowed_orgs = self.allowed_organizations or set(
-                z2jh.get_config("hub.config.GitHubOAuthenticator.allowed_organizations", [])
-            )
-            org_name = next(iter(allowed_orgs), "")
-            if org_name:
-                try:
-                    teams = await fetch_github_teams(access_token, org_name)
-                    result["auth_state"]["github_teams"] = teams
-                    log.info("Fetched %d GitHub teams for user %s", len(teams), result.get("name", "?"))
-                except Exception:
-                    log.warning("Failed to fetch GitHub teams during authentication", exc_info=True)
-
         return result
 
     async def refresh_user(self, user, handler=None, **kwargs):
@@ -101,23 +83,25 @@ class CustomGitHubOAuthenticator(GitHubOAuthenticator):
         if not self.enable_auth_state:
             return True
 
-        auth_state = await user.get_auth_state()
+        try:
+            auth_state = await user.get_auth_state()
+        except Exception:
+            log.warning(
+                "Failed to read auth_state for %s; keeping current session without forcing OAuth",
+                user.name,
+                exc_info=True,
+            )
+            return True
+
         if not auth_state:
-            return False
+            log.warning("No readable auth_state for %s; keeping current session without forcing OAuth", user.name)
+            return True
 
         refresh_token = auth_state.get("refresh_token")
 
         # No refresh_token means token expiration is disabled — nothing to do
         if not refresh_token:
             return True
-
-        from core import z2jh
-        from core.groups import fetch_github_teams
-
-        allowed_orgs = self.allowed_organizations or set(
-            z2jh.get_config("hub.config.GitHubOAuthenticator.allowed_organizations", [])
-        )
-        org_name = next(iter(allowed_orgs), "")
 
         # Proactively refresh if within 10 minutes of expiry
         expires_at = auth_state.get("expires_at")
@@ -132,11 +116,11 @@ class CustomGitHubOAuthenticator(GitHubOAuthenticator):
                 token_info = await self.get_token_info(handler, refresh_params)
             except Exception:
                 log.warning(
-                    "Proactive token refresh failed for %s, falling back to parent",
+                    "Proactive token refresh failed for %s; keeping current session without retrying OAuth",
                     user.name,
                     exc_info=True,
                 )
-                return await super().refresh_user(user, handler, **kwargs)
+                return True
 
             # Keep old refresh_token if the response doesn't include a new one
             if not token_info.get("refresh_token"):
@@ -147,25 +131,18 @@ class CustomGitHubOAuthenticator(GitHubOAuthenticator):
                 auth_model = await self._token_to_auth_model(token_info)
             except Exception:
                 log.error(
-                    "Fresh token from proactive refresh failed for %s",
+                    "Fresh token from proactive refresh failed for %s; keeping current session",
                     user.name,
                     exc_info=True,
                 )
-                return False
+                return True
 
             if expires_in is not None:
                 auth_model["auth_state"]["expires_at"] = time.time() + int(expires_in)
 
-            # Re-fetch GitHub teams with the new token
-            new_token = auth_model["auth_state"].get("access_token")
-            if new_token and org_name:
-                try:
-                    teams = await fetch_github_teams(new_token, org_name)
-                    auth_model["auth_state"]["github_teams"] = teams
-                except Exception:
-                    log.warning("Failed to refresh GitHub teams for %s", user.name, exc_info=True)
-
             return auth_model
 
-        # Not close to expiry — let the parent handle the standard flow
-        return await super().refresh_user(user, handler, **kwargs)
+        # Not close to expiry. Avoid the parent refresh path here because it
+        # may make external GitHub validation calls for every auth_refresh_age
+        # interval even though our cached auth_state is still usable.
+        return True
