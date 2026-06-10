@@ -387,7 +387,9 @@ hub:
         - your-github-org
       # Use [] for GitHub App credentials. For legacy OAuth Apps, use
       # read:user and read:org instead.
-      scope: []
+      scope:
+        - read:user
+        - read:org
 
     KubeSpawner:
       image_pull_policy: IfNotPresent
