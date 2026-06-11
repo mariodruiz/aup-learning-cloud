@@ -96,13 +96,13 @@ After the service starts:
 Forwarded URLs usually follow this pattern:
 
 ```text
-https://www.openhw.io/user/<your-username>/proxy/<port>/
+https://tpe.aupcloud.io/user/<your-username>/proxy/<port>/
 ```
 
 Example:
 
 ```text
-https://www.openhw.io/user/github%3Ausername/proxy/3000/
+https://tpe.aupcloud.io/user/github%3Ausername/proxy/3000/
 ```
 
 :::{note}

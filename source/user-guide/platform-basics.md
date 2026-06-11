@@ -19,7 +19,7 @@ You need:
 Open the platform URL in your browser:
 
 ```text
-https://www.openhw.io/
+https://tpe.aupcloud.io/
 ```
 
 ![Platform login page](../_static/images/user-guide/platform-login-page.png)
