@@ -12,8 +12,8 @@ Supported modes:
 |------|---------|
 | `auto-login` | Shared local mode with no credentials |
 | `dummy` | Testing mode that accepts any username/password |
-| `github` | GitHub OAuth only |
-| `multi` | GitHub OAuth plus native local accounts |
+| `github` | GitHub App only |
+| `multi` | GitHub App plus native local accounts |
 
 The current checked-in single-node defaults use `auto-login`.
 
@@ -33,14 +33,14 @@ The current checked-in single-node defaults use `auto-login`.
 
 ### `github`
 
-- only GitHub OAuth is offered
+- only GitHub App is offered
 - organization membership can be enforced through `allowed_organizations`
 - GitHub teams can be synchronized into Hub groups
 
 ### `multi`
 
 - a combined login page is shown
-- GitHub OAuth and local accounts both appear on the same page
+- GitHub App and local accounts both appear on the same page
 - local users are backed by the custom first-use authenticator
 
 ## Admin Bootstrap
@@ -65,9 +65,9 @@ kubectl -n jupyterhub get secret jupyterhub-admin-credentials \
   -o jsonpath='{.data.api-token}' | base64 -d && echo
 ```
 
-## GitHub OAuth
+## GitHub App
 
-GitHub OAuth configuration lives under `hub.config.GitHubOAuthenticator`.
+GitHub App configuration lives under `hub.config.GitHubOAuthenticator`.
 
 ```yaml
 custom:

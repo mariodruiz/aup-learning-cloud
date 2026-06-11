@@ -40,8 +40,8 @@ Supported values:
 |------|---------|
 | `auto-login` | Shared no-credential local mode |
 | `dummy` | Testing-only any-user mode |
-| `github` | GitHub OAuth only |
-| `multi` | GitHub OAuth plus native accounts |
+| `github` | GitHub App only |
+| `multi` | GitHub App plus native accounts |
 
 ## 2. `custom.adminUser`
 
@@ -81,7 +81,7 @@ Key behavior:
 
 - `githubAppName` enables GitHub App install / repo picker flows for GitHub-authenticated users
 - `defaultAccessToken` provides a fallback private-repo token for all users
-- token priority is GitHub OAuth token first, then `defaultAccessToken`
+- token priority is GitHub App token first, then `defaultAccessToken`
 - a resource must also opt in with `metadata.allowGitClone: true`
 
 ## 5. `custom.accelerators`

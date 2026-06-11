@@ -29,7 +29,7 @@ The Hub currently supports four authentication modes:
 - `github`
 - `multi`
 
-`multi` combines GitHub OAuth and native local accounts on one login page. In GitHub-backed deployments, GitHub team membership can be synchronized into JupyterHub groups and used for resource access control.
+`multi` combines GitHub App and native local accounts on one login page. In GitHub-backed deployments, GitHub team membership can be synchronized into JupyterHub groups and used for resource access control.
 
 ### Admin Console
 

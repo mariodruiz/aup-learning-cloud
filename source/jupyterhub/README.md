@@ -39,8 +39,8 @@ The current Hub supports four auth modes via `custom.authMode`:
 
 - `auto-login` - Automatically logs everyone in as a shared user for simple installs
 - `dummy` - Accepts any username/password for testing only
-- `github` - GitHub OAuth only
-- `multi` - GitHub OAuth plus native local accounts on a single login page
+- `github` - GitHub App only
+- `multi` - GitHub App plus native local accounts on a single login page
 
 In GitHub-backed modes, the Hub can also sync GitHub team membership into JupyterHub groups and use those groups for resource visibility.
 

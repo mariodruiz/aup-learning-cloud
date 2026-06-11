@@ -17,7 +17,7 @@ Detailed end-user documentation may be expanded in future releases; contact your
 
 ### Common Tasks
 
-- **Login**: Use GitHub OAuth or native credentials
+- **Login**: Use GitHub App or native credentials
 - **Start Server**: Select your desired environment and resources
 - **Stop Server**: Always stop your server when finished to free up resources
 - **File Management**: Use the file browser in JupyterLab
