@@ -42,8 +42,9 @@ from sqlalchemy.orm import Session
 log = logging.getLogger("jupyterhub.groups")
 
 GITHUB_TEAM_SOURCE = "github-team"
+SAML_GROUP_SOURCE = "saml-group"
 SYSTEM_SOURCE = "system"
-SYSTEM_GROUP_NAMES = {"github-users", "native-users"}
+SYSTEM_GROUP_NAMES = {"github-users", "native-users", "saml-users"}
 _GITHUB_TEAM_SYNC_CACHE: dict[tuple[str, str, str, str], tuple[float, list[str]]] = {}
 _GITHUB_TEAM_SYNC_LOCKS: dict[str, asyncio.Lock] = {}
 _GITHUB_TEAM_MEMBERS_CACHE: dict[tuple[str, str, str, tuple[str, ...]], tuple[float, dict[str, list[str]]]] = {}
@@ -668,6 +669,45 @@ def assign_user_to_group(
         log.info("Added user '%s' to group '%s'", user.name, group_name)
 
 
+def sync_saml_groups_for_user(
+    user: JupyterHubUser,
+    saml_groups: list[str],
+    db: Session,
+    group_prefix: str = "saml-",
+) -> None:
+    """Sync SAML group claims to JupyterHub groups.
+
+    Creates groups prefixed with ``group_prefix`` and adds the user.
+    Removes the user from SAML groups they no longer belong to.
+    """
+    assert user.orm_user is not None
+
+    relevant_groups = {f"{group_prefix}{g}" for g in saml_groups}
+
+    for group_name in relevant_groups:
+        orm_group = db.query(ORMGroup).filter_by(name=group_name).first()
+        if orm_group is None:
+            orm_group = ORMGroup(name=group_name)
+            orm_group.properties = {"source": SAML_GROUP_SOURCE}  # type: ignore[assignment]
+            db.add(orm_group)
+            db.commit()
+            log.info("Created JupyterHub group '%s' (source: saml-group)", group_name)
+        elif orm_group.properties.get("source") != SAML_GROUP_SOURCE:
+            orm_group.properties = {**orm_group.properties, "source": SAML_GROUP_SOURCE}  # type: ignore[assignment]
+            db.commit()
+
+        if orm_group not in user.orm_user.groups:
+            user.orm_user.groups.append(orm_group)
+            db.commit()
+            log.info("Added user '%s' to group '%s'", user.name, group_name)
+
+    for orm_group in list(user.orm_user.groups):
+        if orm_group.properties.get("source") == SAML_GROUP_SOURCE and orm_group.name not in relevant_groups:
+            user.orm_user.groups.remove(orm_group)
+            db.commit()
+            log.info("Removed user '%s' from group '%s'", user.name, orm_group.name)
+
+
 def get_resources_for_user(
     user: JupyterHubUser,
     team_resource_mapping: dict[str, list[str]],
@@ -714,6 +754,12 @@ def resolve_resources_for_user(
     if available_resources:
         return available_resources
 
+    if username.startswith("saml:"):
+        return team_resource_mapping.get(
+            "saml-users",
+            team_resource_mapping.get("native-users", team_resource_mapping.get("official", [])),
+        )
+
     if not username.startswith("github:"):
         return team_resource_mapping.get("native-users", team_resource_mapping.get("official", []))
 
@@ -740,12 +786,13 @@ def is_readonly_group(group: ORMGroup) -> bool:
 def is_undeletable_group(group: ORMGroup) -> bool:
     """Check if a group cannot be deleted.
 
-    Both GitHub-synced groups and system-managed groups are undeletable.
+    GitHub-synced, SAML-synced, and system-managed groups are undeletable.
 
     Args:
         group: JupyterHub ORM Group object.
 
     Returns:
-        True if the group's source is "github-team" or "system".
+        True if the group's source is "github-team", "saml-group", or "system".
     """
-    return group.properties.get("source") in (GITHUB_TEAM_SOURCE, SYSTEM_SOURCE)  # type: ignore[union-attr]
+    source = group.properties.get("source")  # type: ignore[union-attr]
+    return source in (GITHUB_TEAM_SOURCE, SAML_GROUP_SOURCE, SYSTEM_SOURCE)

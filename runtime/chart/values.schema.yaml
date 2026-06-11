@@ -3173,14 +3173,17 @@ properties:
     properties:
       authMode:
         type: string
-        enum: [auto-login, dummy, github, multi]
+        enum: [auto-login, dummy, github, saml, multi, multi-github, multi-saml]
         description: |
           Authentication mode for the JupyterHub instance.
 
           - `auto-login`: No credentials required, auto-login as 'student' (for demos/single-node)
           - `dummy`: Accept any username/password (for testing)
-          - `github`: GitHub OAuth authentication only
-          - `multi`: GitHub OAuth + Local native accounts (recommended for production)
+          - `github`: GitHub App authentication only
+          - `saml`: SAML 2.0 SSO (e.g., Okta) only
+          - `multi-github`: GitHub App + Local native accounts
+          - `multi-saml`: SAML SSO + Local native accounts
+          - `multi`: Backwards-compatible alias for multi-github
 
       adminUser:
         type: object

@@ -28,6 +28,7 @@ from core.authenticators.firstuse import CustomFirstUseAuthenticator
 from core.authenticators.github_oauth import CustomGitHubOAuthenticator
 from core.authenticators.jwt import RemoteLabAuthenticator
 from core.authenticators.multi import CustomMultiAuthenticator
+from core.authenticators.saml import CustomSAMLAuthenticator
 
 LOCAL_ACCOUNT_PREFIX = "LocalAccount"
 
@@ -49,7 +50,9 @@ def create_authenticator(auth_mode: str, **kwargs):
         return "dummy"
     elif auth_mode == "github":
         return CustomGitHubOAuthenticator
-    elif auth_mode == "multi":
+    elif auth_mode == "saml":
+        return CustomSAMLAuthenticator
+    elif auth_mode in ("multi", "multi-github", "multi-saml"):
         return CustomMultiAuthenticator
     else:
         print(f"[WARN] Unknown auth mode: {auth_mode}, falling back to dummy")
@@ -62,6 +65,7 @@ __all__ = [
     "CustomGitHubOAuthenticator",
     "CustomFirstUseAuthenticator",
     "CustomMultiAuthenticator",
+    "CustomSAMLAuthenticator",
     "create_authenticator",
     "LOCAL_ACCOUNT_PREFIX",
 ]

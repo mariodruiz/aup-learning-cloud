@@ -32,11 +32,14 @@ enabled:
 # custom can contain anything you want to pass to the hub pod, as all passed
 # Helm template values will be made available there.
 custom:
-  # Authentication mode: "auto-login" | "dummy" | "github" | "multi"
+  # Authentication mode:
   #   - auto-login: No credentials required, auto-login as 'student' (default, for single-node)
   #   - dummy: Accept any username/password (for testing)
-  #   - github: GitHub OAuth authentication
-  #   - multi: GitHub OAuth + Local accounts
+  #   - github: GitHub App authentication only
+  #   - saml: SAML 2.0 SSO (e.g., Okta) only
+  #   - multi-github: GitHub App + Local native accounts
+  #   - multi-saml: SAML SSO + Local native accounts
+  #   - multi: Backwards-compatible alias for multi-github
   authMode: "auto-login"
 
   # Auto-create admin user on first install (optional)
@@ -111,6 +114,17 @@ hub:
     JupyterHub:
       admin_access: true
       authenticator_class: dummy
+    # SAML 2.0 authenticator settings (used when authMode is "saml" or "multi-saml")
+    # Configure these in a deployment-specific values file, not here.
+    # CustomSAMLAuthenticator:
+    #   idp_metadata_url: ""       # URL to fetch IdP metadata XML (preferred)
+    #   idp_entity_id: ""          # IdP entity ID (if not using metadata URL)
+    #   idp_sso_url: ""            # IdP SSO endpoint URL
+    #   idp_x509_cert: ""          # IdP signing certificate (base64 body)
+    #   sp_entity_id: ""           # SP entity ID (auto-derived if empty)
+    #   sp_acs_url: ""             # SP ACS URL (auto-derived if empty)
+    #   username_attribute: ""     # SAML attribute for username (empty = NameID)
+    #   group_attribute: ""        # SAML attribute for group membership (optional)
   service:
     type: ClusterIP
     annotations: {}

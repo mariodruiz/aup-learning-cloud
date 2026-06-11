@@ -26,3 +26,4 @@ Markdown
 nh3
 dulwich
 prometheus-client
+python3-saml

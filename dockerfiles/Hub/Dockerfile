@@ -68,6 +68,12 @@ ARG PIP_INDEX_URL
 
 USER root
 
+# SAML: native C libraries for python3-saml (xmlsec1)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        pkg-config libxml2-dev libxmlsec1-dev libxmlsec1-openssl && \
+    rm -rf /var/lib/apt/lists/*
+
 # Frontend: templates and static files
 RUN mkdir -p /tmp/custom_templates/static/css /tmp/custom_templates/static/js \
     /usr/local/share/jupyterhub/static/admin-ui \

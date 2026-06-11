@@ -76,6 +76,13 @@ _handler_config: dict[str, Any] = {
 }
 
 
+_EXTERNAL_USER_PREFIXES = ("github:", "saml:")
+
+
+def _is_external_user(username: str) -> bool:
+    return username.startswith(_EXTERNAL_USER_PREFIXES)
+
+
 def _serialize_dismissed_at(value: datetime | None) -> str | None:
     """Serialize onboarding dismissal timestamps for API responses."""
     if value is None:
@@ -265,8 +272,8 @@ class ChangePasswordHandler(BaseHandler):
             return self.finish(html)
 
         username = user.name
-        if username.startswith("github:"):
-            html = await _render_error("GitHub users cannot change password here")
+        if _is_external_user(username):
+            html = await _render_error("External SSO users cannot change password here")
             self.set_status(400)
             return self.finish(html)
 
@@ -322,7 +329,7 @@ class AdminResetPasswordHandler(BaseHandler):
         from jupyterhub.orm import User
 
         for user in self.db.query(User).all():
-            if not user.name.startswith("github:") and user.name != "admin":
+            if not _is_external_user(user.name) and user.name != "admin":
                 native_users.append(user.name)
 
         html = await self.render_template(
@@ -356,10 +363,10 @@ class AdminResetPasswordHandler(BaseHandler):
             )
 
         username = target_user
-        if username.startswith("github:"):
+        if _is_external_user(username):
             return self.redirect(
                 self.hub.base_url
-                + f"admin/reset-password?user={target_user}&error=Cannot+reset+password+for+GitHub+users"
+                + f"admin/reset-password?user={target_user}&error=Cannot+reset+password+for+external+SSO+users"
             )
 
         firstuse_auth = None
@@ -438,10 +445,10 @@ class AdminAPISetPasswordHandler(APIHandler):
                 self.set_header("Content-Type", "application/json")
                 return self.finish(json.dumps({"error": "Username and password are required"}))
 
-            if username.startswith("github:"):
+            if _is_external_user(username):
                 self.set_status(400)
                 self.set_header("Content-Type", "application/json")
-                return self.finish(json.dumps({"error": "Cannot set password for GitHub users"}))
+                return self.finish(json.dumps({"error": "Cannot set password for external SSO users"}))
 
             firstuse_auth = None
             if isinstance(self.authenticator, MultiAuthenticator):
@@ -532,11 +539,11 @@ class AdminAPIBatchSetPasswordHandler(APIHandler):
                     self.set_status(400)
                     self.set_header("Content-Type", "application/json")
                     return self.finish(json.dumps({"error": "Each entry must have username and password"}))
-                if entry.get("username", "").startswith("github:"):
+                if _is_external_user(entry.get("username", "")):
                     self.set_status(400)
                     self.set_header("Content-Type", "application/json")
                     return self.finish(
-                        json.dumps({"error": f"Cannot set password for GitHub user: {entry['username']}"})
+                        json.dumps({"error": f"Cannot set password for external SSO user: {entry['username']}"})
                     )
 
             firstuse_auth = None

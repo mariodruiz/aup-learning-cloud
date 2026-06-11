@@ -67,6 +67,7 @@ def setup_hub(c: Any) -> None:
     from core.authenticators import (
         CustomFirstUseAuthenticator,
         CustomGitHubOAuthenticator,
+        CustomSAMLAuthenticator,
         create_authenticator,
     )
     from core.config import HubConfig
@@ -82,6 +83,7 @@ def setup_hub(c: Any) -> None:
     github_app_private_key = z2jh.get_config("hub.config.GitHubOAuthenticator.private_key", "")
     github_app_private_key_file = z2jh.get_config("hub.config.GitHubOAuthenticator.private_key_file", "")
     github_team_sync_ttl_seconds = z2jh.get_config("hub.config.GitHubOAuthenticator.team_sync_ttl_seconds", 3600)
+    saml_group_attribute = z2jh.get_config("hub.config.CustomSAMLAuthenticator.group_attribute", "")
 
     # =========================================================================
     # Configure Spawner
@@ -108,7 +110,7 @@ def setup_hub(c: Any) -> None:
     # Ensure system-managed groups exist at startup (before any user logs in).
     # Note: load_groups does NOT set properties on existing groups, so the
     # source=system backfill is handled lazily in the admin groups API handler.
-    c.JupyterHub.load_groups = {"native-users": [], "github-users": []}
+    c.JupyterHub.load_groups = {"native-users": [], "github-users": [], "saml-users": []}
 
     # =========================================================================
     # Configure Authenticator
@@ -160,6 +162,22 @@ def setup_hub(c: Any) -> None:
                 assign_user_to_group(spawner.user, "github-users", spawner.user.db)
             except Exception as e:
                 print(f"[GROUPS] Warning: Failed to assign github-users group for {spawner.user.name}: {e}")
+        elif spawner.user.name.startswith("saml:"):
+            try:
+                from core.groups import assign_user_to_group
+
+                assign_user_to_group(spawner.user, "saml-users", spawner.user.db)
+
+                if saml_group_attribute:
+                    saml_groups = auth_state.get("saml_attributes", {}).get(
+                        saml_group_attribute, []
+                    )
+                    if saml_groups:
+                        from core.groups import sync_saml_groups_for_user
+
+                        sync_saml_groups_for_user(spawner.user, saml_groups, spawner.user.db)
+            except Exception as e:
+                print(f"[GROUPS] Warning: Failed to assign SAML user group for {spawner.user.name}: {e}")
         elif not spawner.user.name.startswith("github:"):
             # Native user with auth_state but no GitHub teams
             try:
@@ -176,11 +194,25 @@ def setup_hub(c: Any) -> None:
 
     if config.auth_mode == "auto-login":
         c.Authenticator.allow_all = True
-    elif config.auth_mode == "multi":
+    elif config.auth_mode == "saml":
+        c.Authenticator.allow_all = True
+    elif config.auth_mode in ("multi", "multi-github"):
         c.MultiAuthenticator.authenticators = [
             {
                 "authenticator_class": CustomGitHubOAuthenticator,
                 "url_prefix": "/github",
+            },
+            {
+                "authenticator_class": CustomFirstUseAuthenticator,
+                "url_prefix": "/native",
+                "config": {"prefix": ""},
+            },
+        ]
+    elif config.auth_mode == "multi-saml":
+        c.MultiAuthenticator.authenticators = [
+            {
+                "authenticator_class": CustomSAMLAuthenticator,
+                "url_prefix": "/saml",
             },
             {
                 "authenticator_class": CustomFirstUseAuthenticator,
