@@ -6,7 +6,7 @@
 - [User Management Guide](./user-management.md) - Admin console and CLI-based user operations
 - [User Quota System](./quota-system.md) - Quota balances, rates, refresh rules, and admin actions
 - [Monitoring Deployment Guide](./monitoring.md) - Prometheus, Grafana, ServiceMonitor, dashboard, and alert setup
-- [GitHub App Setup](./github-oauth-setup.md) - Optional GitHub App integration for private repository access
+- [GitHub App Setup](./github-app-setup.md) - Optional GitHub App integration for private repository access
 - [Configuration Reference](./configuration-reference.md) - Detailed `runtime/values.yaml` and chart configuration
 
 ---
@@ -194,7 +194,7 @@ custom:
       - bitbucket.org
 ```
 
-For GitHub App setup details, see [GitHub App Setup](./github-oauth-setup.md).
+For GitHub App setup details, see [GitHub App Setup](./github-app-setup.md).
 
 ### Verify Hub State After A Change
 
@@ -217,4 +217,4 @@ kubectl get cronjobs -n jupyterhub -l app.kubernetes.io/component=quota-refresh
 2. Then read [Authentication Guide](./authentication-guide.md)
 3. For operator tasks, use [User Management Guide](./user-management.md)
 4. For quota-enabled deployments, read [User Quota System](./quota-system.md)
-5. For private repository flows, read [GitHub App Setup](./github-oauth-setup.md)
+5. For private repository flows, read [GitHub App Setup](./github-app-setup.md)

@@ -118,7 +118,7 @@ custom:
 
 When configured, GitHub-authenticated users can install or authorize the app and use repo-picker flows on the spawn page.
 
-For setup instructions, see [GitHub App Setup](github-oauth-setup.md).
+For setup instructions, see [GitHub App Setup](github-app-setup.md).
 
 ## Native Accounts
 
@@ -256,6 +256,6 @@ This usually means the new password does not satisfy the current strength policy
 
 ## Related Documentation
 
-- [GitHub App Setup](github-oauth-setup.md)
+- [GitHub App Setup](github-app-setup.md)
 - [User Management Guide](user-management.md)
 - [Configuration Reference](configuration-reference.md)
