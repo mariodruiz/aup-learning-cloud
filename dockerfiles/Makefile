@@ -53,9 +53,9 @@ base-cpu:
 	 	echo "Building Base Image (cpu)..."; \
 		echo "-------------------------------------------";
 
-	cd Base && docker build $(BUILD_ARGS) \
+	docker build $(BUILD_ARGS) \
 		$(if $(MIRROR_PREFIX),--build-arg BASE_IMAGE=$(MIRROR_PREFIX)/quay.io/jupyter/base-notebook:python-3.12,) \
-		-t ghcr.io/amdresearch/auplc-default:latest --file Dockerfile.cpu .
+		-t ghcr.io/amdresearch/auplc-default:latest --file Base/Dockerfile.cpu ..
 	$(MAKE) save-image IMAGE=ghcr.io/amdresearch/auplc-default:latest
 
 base-rocm:
@@ -63,11 +63,11 @@ base-rocm:
 	 	echo "Building Base Image (rocm, GPU_TARGET=$(GPU_TARGET))..."; \
 		echo "-------------------------------------------";
 
-	cd Base && docker build $(BUILD_ARGS) \
+	docker build $(BUILD_ARGS) \
 		--build-arg GPU_TARGET=$(GPU_TARGET) \
 		--build-arg ROCM_SDK_TARGET=$(ROCM_SDK_TARGET) \
 		$(if $(MIRROR_PREFIX),--build-arg BASE_IMAGE=$(MIRROR_PREFIX)/docker.io/library/ubuntu:24.04,) \
-		-t ghcr.io/amdresearch/auplc-base:latest --file Dockerfile.rocm .
+		-t ghcr.io/amdresearch/auplc-base:latest --file Base/Dockerfile.rocm ..
 	docker tag ghcr.io/amdresearch/auplc-base:latest ghcr.io/amdresearch/auplc-base:latest-$(GPU_TARGET)
 
 # Deprecated alias — use base-rocm instead

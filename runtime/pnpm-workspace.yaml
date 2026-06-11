@@ -2,8 +2,12 @@
 # SPDX-License-Identifier: MIT
 
 packages:
-  - "packages/*"
-  - "apps/*"
+  - "shared/*"
+  - "notebook/*"
+  - "!notebook/*/auplc_jupyterlab_runtime_status/labextension"
+  - "code-server/extensions/*"
+  - "hub/frontend/packages/*"
+  - "hub/frontend/apps/*"
 
 catalog:
   # Linting

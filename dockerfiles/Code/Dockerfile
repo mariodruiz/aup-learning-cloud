@@ -27,15 +27,19 @@ FROM ${NODE_IMAGE} AS node-runtime
 FROM node-runtime AS hub-link-builder
 
 ARG NPM_REGISTRY=
-WORKDIR /build/auplc-hub-link
+ARG PNPM_VERSION=10.27.0
+WORKDIR /build/runtime
 
-COPY auplc-hub-link/package.json auplc-hub-link/package-lock.json ./
-RUN if [ -n "${NPM_REGISTRY}" ]; then npm config set registry "${NPM_REGISTRY}"; fi && \
-    npm ci
-
-COPY auplc-hub-link/ ./
-RUN npm run package && \
-    test -f auplc-hub-link-0.0.0.vsix
+RUN npm install -g pnpm@${PNPM_VERSION}
+COPY runtime/package.json runtime/pnpm-workspace.yaml runtime/pnpm-lock.yaml runtime/.npmrc ./
+COPY runtime/hub/frontend/tsconfig.base.json ./hub/frontend/tsconfig.base.json
+COPY runtime/shared/runtime-status ./shared/runtime-status
+COPY runtime/code-server/extensions/auplc-hub-link ./code-server/extensions/auplc-hub-link
+RUN if [ -n "${NPM_REGISTRY}" ]; then pnpm config set registry "${NPM_REGISTRY}"; fi && \
+    pnpm install --frozen-lockfile --prod=false --filter auplc-hub-link...
+RUN pnpm --filter @auplc/runtime-status run build && \
+    pnpm --filter auplc-hub-link run build && \
+    test -f code-server/extensions/auplc-hub-link/auplc-hub-link-0.0.0.vsix
 
 FROM ${BASE_IMAGE}
 
@@ -49,8 +53,8 @@ ARG PIXI_DOWNLOAD_URL=
 ARG PIXI_CONDA_FORGE_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
 USER root
 
-COPY packages/code-common-apt.txt /opt/auplc/build/code-common-apt.txt
-COPY scripts/install-code-system-packages.sh scripts/install-node-toolchain.sh scripts/install-pixi-toolchain.sh /usr/local/bin/
+COPY dockerfiles/Code/packages/code-common-apt.txt /opt/auplc/build/code-common-apt.txt
+COPY dockerfiles/Code/scripts/install-code-system-packages.sh dockerfiles/Code/scripts/install-node-toolchain.sh dockerfiles/Code/scripts/install-pixi-toolchain.sh /usr/local/bin/
 
 RUN chmod +x /usr/local/bin/install-code-system-packages.sh /usr/local/bin/install-node-toolchain.sh /usr/local/bin/install-pixi-toolchain.sh && \
     /usr/local/bin/install-code-system-packages.sh /opt/auplc/build/code-common-apt.txt
@@ -70,10 +74,10 @@ ENV NPM_CONFIG_PREFIX=/home/jovyan/.local
 ENV PIXI_HOME=/home/jovyan/.pixi
 ENV PATH=/home/jovyan/.local/bin:/home/jovyan/.pixi/bin:${PATH}
 
-COPY extensions.txt /opt/auplc/extensions/extensions.txt
-COPY extensions/ /opt/auplc/extensions/local/
-COPY --from=hub-link-builder /build/auplc-hub-link/auplc-hub-link-0.0.0.vsix /opt/auplc/extensions/local/auplc-hub-link-0.0.0.vsix
-COPY start-code-server.sh /usr/local/bin/start-code-server.sh
+COPY dockerfiles/Code/extensions.txt /opt/auplc/extensions/extensions.txt
+COPY dockerfiles/Code/extensions/ /opt/auplc/extensions/local/
+COPY --from=hub-link-builder /build/runtime/code-server/extensions/auplc-hub-link/auplc-hub-link-0.0.0.vsix /opt/auplc/extensions/local/auplc-hub-link-0.0.0.vsix
+COPY dockerfiles/Code/start-code-server.sh /usr/local/bin/start-code-server.sh
 
 RUN chmod +x /usr/local/bin/start-code-server.sh && \
     mkdir -p \

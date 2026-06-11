@@ -30,8 +30,11 @@
   },
   "scripts": {
     "compile": "tsc -p .",
-    "vscode:prepublish": "npm run compile",
-    "package": "vsce package --no-dependencies"
+    "package": "vsce package --no-dependencies",
+    "build": "tsc -p . && vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "@auplc/runtime-status": "workspace:*"
   },
   "devDependencies": {
     "@types/vscode": "^1.80.0",
