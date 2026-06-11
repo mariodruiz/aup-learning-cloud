@@ -90,19 +90,37 @@ GitHub Apps are the recommended way to integrate with GitHub. They are created u
 
 3. Set permissions:
    - **Repository permissions**:
-     - `Contents`: Read-only (for cloning private repos)
-     - `Metadata`: Read-only (selected by default)
+      - `Contents`: Read-only (for cloning private repos)
+      - `Metadata`: Read-only (selected by default)
    - **Organization permissions**:
-     - `Members`: Read-only (for team-based access control)
+      - `Members`: Read-only (required for team-based resource access control and group sync)
+
+   :::{important}
+   `Members: Read-only` is required for the Hub's platform-owned team synchronization. Without this organization permission, the Hub cannot list organization teams or team members and logs errors such as `Resource not accessible by integration` when calling the GitHub GraphQL API.
+   :::
 
 4. Installation scope:
    - **Where can this GitHub App be installed?**: Any account
    - Click **Create GitHub App**
 
 5. After creation, note down the following:
-   - **Client ID**: Displayed on the App's General page (e.g., `Iv23liXXXXXX`)
-   - **Client secret**: Click **Generate a new client secret** -- copy it immediately
-   - **App slug**: The URL-safe name in the App's URL (e.g., `auplc-hub`)
+    - **Client ID**: Displayed on the App's General page (e.g., `Iv23liXXXXXX`)
+    - **Client secret**: Click **Generate a new client secret** -- copy it immediately
+    - **App ID**: Displayed on the App's General page. This is different from the Client ID.
+    - **App slug**: The URL-safe name in the App's URL (e.g., `auplc-hub`)
+
+6. Generate a private key:
+   - On the App's General page, click **Generate a private key**.
+   - Store the downloaded `.pem` file as a Kubernetes secret or mount it into the Hub pod by your deployment's secret-management process.
+   - Record the mounted file path. You will use it as `hub.config.GitHubOAuthenticator.private_key_file`.
+
+7. Install the GitHub App on the organization:
+   - Open the App's **Install App** page.
+   - Install it on the same organization configured as `custom.githubOrgName`.
+   - Select the repositories users may access if private repository cloning is enabled.
+   - If you later add or change permissions, an organization owner must approve the updated installation permissions.
+
+   `installation_id` does not normally need to be configured manually. The Hub can discover it from the organization installation with `GET /orgs/{org}/installation` as long as the app is installed on that organization.
 
 ## Step 5: Configure JupyterHub
 
@@ -112,13 +130,20 @@ GitHub Apps are the recommended way to integrate with GitHub. They are created u
 
    ```yaml
    custom:
+     githubOrgName: "<YOUR-ORG-NAME>"
+
      gitClone:
-       githubAppName: "your-app-slug"  # Enables private repo access & repo picker
+        githubAppName: "your-app-slug"  # Enables private repo access & repo picker
 
    hub:
      config:
        GitHubOAuthenticator:
          oauth_callback_url: "https://<Your.domain>/hub/github/oauth_callback"
+         app_id: "<GitHub App App ID>"
+         installation_id: ""  # Optional; leave blank to auto-discover from the org installation
+         private_key_file: "/path/to/mounted/github-app-private-key.pem"
+         # private_key: ""  # Alternative to private_key_file; prefer mounted secrets for production
+         team_sync_ttl_seconds: 3600
          client_id: "<GitHub App Client ID>"
          client_secret: "<GitHub App Client Secret>"
          allowed_organizations:
@@ -126,8 +151,16 @@ GitHub Apps are the recommended way to integrate with GitHub. They are created u
          scope: []  # GitHub App uses App-level permissions, not OAuth scopes
    ```
 
-   :::{note}
-   `scope: []` is correct for GitHub Apps. Permissions (Contents, Members, etc.) are configured in the App settings on GitHub, not via OAuth scopes.
+    :::{note}
+    `scope: []` is correct for GitHub Apps. Permissions (Contents, Members, etc.) are configured in the App settings on GitHub, not via OAuth scopes.
+    :::
+
+   :::{tip}
+   The Hub uses the GitHub App installation token for server-to-server team synchronization. It first lists actual organization teams, intersects them with `custom.teams.mapping`, and then batches team member lookups through GitHub GraphQL. This avoids per-user OAuth token lookups and reduces GitHub API traffic. If a configured team no longer exists on GitHub, it is logged and skipped instead of failing the entire sync.
+   :::
+
+   :::{warning}
+   The GitHub App must still be installed on the organization. Leaving `installation_id` blank only skips manual ID entry; it does not remove the installation requirement.
    :::
 
 3. Configure team-to-resource mapping in `values.yaml`:
@@ -149,6 +182,8 @@ GitHub Apps are the recommended way to integrate with GitHub. They are created u
            - Course-LLM
    ```
 
+   Team mapping keys should correspond to GitHub team names/slugs. The Hub normalizes configured keys for GitHub API lookup, for example `AUP` is queried as the GitHub team slug `aup`, while the JupyterHub group remains `AUP`.
+
 4. Deploy:
 
    ```bash
@@ -168,6 +203,9 @@ GitHub Apps are the recommended way to integrate with GitHub. They are created u
 - **OAuth callback error**: Ensure your callback URL exactly matches what you configured in GitHub (including HTTPS)
 - **Organization not found**: Verify the organization name in your configuration matches your GitHub organization exactly
 - **Users can't access resources**: Check that users are added to the correct teams in GitHub
+- **Team sync fails with `Resource not accessible by integration`**: Ensure the GitHub App installation on your organization has `Members: Read-only` under Organization permissions. If you changed permissions after installing the app, an organization owner must approve the updated permissions on the installed app.
+- **Configured team is skipped**: Verify the team exists in the GitHub organization. The Hub lists actual GitHub teams first and only syncs teams that exist.
+- **Installation token unavailable**: Verify `app_id` and `private_key_file` are configured and that the GitHub App is installed on `custom.githubOrgName`. `installation_id` can usually remain blank.
 - **Authentication fails**: Verify your Client ID and Client Secret are correct and the secret hasn't expired
 
 ## Migrating from OAuth App to GitHub App
@@ -187,16 +225,22 @@ If you are currently using a legacy GitHub OAuth App, follow these steps to migr
 
 1. **Create a GitHub App** under your organization (see Step 4 above)
 
-2. **Update `values.yaml`** -- change 3 fields, add 1:
+2. **Update `values.yaml`** -- change the OAuth credentials and add GitHub App server-to-server settings:
 
    ```yaml
    custom:
+     githubOrgName: "<YOUR-ORG-NAME>"
+
      gitClone:
-       githubAppName: "your-app-slug"          # NEW -- add this
+        githubAppName: "your-app-slug"          # NEW -- add this
 
    hub:
      config:
        GitHubOAuthenticator:
+         app_id: "<GitHub App App ID>"           # NEW -- App ID, not Client ID
+         installation_id: ""                     # NEW -- optional; auto-discovered from org installation
+         private_key_file: "/path/to/mounted/github-app-private-key.pem"  # NEW
+         team_sync_ttl_seconds: 3600             # NEW -- cache/throttle team sync
          client_id: "<GitHub App Client ID>"    # CHANGE -- from OAuth App's ID
          client_secret: "<GitHub App Client Secret>"  # CHANGE -- from OAuth App's secret
          scope: []                               # CHANGE -- was [read:user, read:org]
