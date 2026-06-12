@@ -54,7 +54,10 @@ custom:
   # - auto-login: No credentials required, auto-login as 'student' (for single-node dev)
   # - dummy: Accept any username/password (for testing)
   # - github: GitHub OAuth authentication
-  # - multi: GitHub OAuth + native first-use accounts
+  # - saml: SAML 2.0 SSO (e.g. Okta) only
+  # - multi: Backwards-compatible alias for multi-github
+  # - multi-github: GitHub OAuth + Local native accounts
+  # - multi-saml: SAML SSO + Local native accounts
   authMode: "multi"
 
   # GitHub organization name for team-based resource access
@@ -318,6 +321,13 @@ custom:
         - Course-DL
         - Course-LLM
         - Course-PhySim
+      saml-users:
+        - cpu
+        - gpu
+        - Course-CV
+        - Course-DL
+        - Course-LLM
+        - Course-PhySim
 
   # Native users in multi auth mode are managed by the built-in admin UI or the
   # batch scripts under scripts/. New native users are automatically assigned to
@@ -393,6 +403,34 @@ hub:
       # Use [] for GitHub App credentials. For legacy OAuth Apps, use
       # read:user and read:org instead.
       scope: []
+
+    # ---- SAML 2.0 SSO ----
+    # Used when authMode is "saml" or "multi-saml".
+    # Option A: point to IdP metadata URL (preferred — auto-fetches entity ID,
+    #           SSO URL, and signing certificate):
+    #   CustomSAMLAuthenticator:
+    #     idp_metadata_url: "https://your-idp.okta.com/app/APPID/sso/saml/metadata"
+    #
+    # Option B: configure IdP settings manually:
+    #   CustomSAMLAuthenticator:
+    #     idp_entity_id: "http://www.okta.com/ENTITY_ID"
+    #     idp_sso_url: "https://your-idp.okta.com/app/APPID/sso/saml"
+    #     idp_x509_cert: "<base64-encoded IdP signing certificate>"
+    #     idp_slo_url: ""              # IdP Single Logout URL (optional)
+    #
+    # SP settings (auto-derived from the request if left empty):
+    #     sp_entity_id: ""             # e.g. "https://your.domain/hub/saml/metadata"
+    #     sp_acs_url: ""               # e.g. "https://your.domain/hub/saml/acs"
+    #     sp_x509_cert: ""             # SP certificate for signed requests (optional)
+    #     sp_private_key: ""           # SP private key for signed requests (optional)
+    #
+    # Attribute mapping:
+    #     username_attribute: ""       # SAML attribute for username (empty = NameID)
+    #     group_attribute: ""          # SAML attribute for group membership (optional)
+    #
+    # Signature requirements:
+    #     want_assertions_signed: true # Require signed assertions (default: true)
+    #     want_response_signed: false  # Require signed response envelope (default: false)
 
     KubeSpawner:
       image_pull_policy: IfNotPresent
