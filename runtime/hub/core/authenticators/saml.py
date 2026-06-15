@@ -40,11 +40,24 @@ log = logging.getLogger("jupyterhub.auth.saml")
 _cached_idp_metadata: dict | None = None
 
 
-def _prepare_tornado_request(handler):
+def _infer_proto(request):
+    """Determine the external protocol from proxy headers."""
+    for header in ("X-Forwarded-Proto", "X-Forwarded-Scheme", "X-Scheme"):
+        value = request.headers.get(header)
+        if value:
+            return value.split(",")[0].strip()
+    if request.headers.get("X-Forwarded-Ssl") == "on":
+        return "https"
+    if request.headers.get("X-Forwarded-Port") == "443":
+        return "https"
+    return request.protocol
+
+
+def _prepare_tornado_request(handler, *, force_https=False):
     """Convert a Tornado request into the dict format expected by python3-saml."""
     request = handler.request
     host = request.headers.get("X-Forwarded-Host", request.host)
-    proto = request.headers.get("X-Forwarded-Proto", request.protocol)
+    proto = "https" if force_https else _infer_proto(request)
     path = request.path
     return {
         "https": "on" if proto == "https" else "off",
@@ -145,6 +158,14 @@ class CustomSAMLAuthenticator(Authenticator):
         config=True,
         help="Require the SAML response envelope to be signed.",
     )
+
+    @property
+    def _force_https(self):
+        """Infer HTTPS from explicitly configured SP URLs."""
+        for url in (self.sp_acs_url, self.sp_entity_id):
+            if url.startswith("https://"):
+                return True
+        return False
 
     def _get_base_url(self, handler):
         """Derive the external base URL from request headers."""
@@ -263,7 +284,7 @@ class CustomSAMLAuthenticator(Authenticator):
 
             async def get(self):
                 saml_settings = authenticator._build_saml_settings(self)
-                req = _prepare_tornado_request(self)
+                req = _prepare_tornado_request(self, force_https=authenticator._force_https)
                 auth = OneLogin_Saml2_Auth(req, saml_settings)
 
                 next_url = self.get_argument("next", "")
@@ -278,7 +299,7 @@ class CustomSAMLAuthenticator(Authenticator):
 
             async def post(self):
                 saml_settings = authenticator._build_saml_settings(self)
-                req = _prepare_tornado_request(self)
+                req = _prepare_tornado_request(self, force_https=authenticator._force_https)
                 auth = OneLogin_Saml2_Auth(req, saml_settings)
                 auth.process_response()
 
