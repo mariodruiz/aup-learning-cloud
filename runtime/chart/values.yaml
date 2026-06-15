@@ -115,23 +115,23 @@ hub:
     JupyterHub:
       admin_access: true
       authenticator_class: dummy
-    # SAML 2.0 authenticator settings (used when authMode is "saml" or "multi-saml")
+    # SAML 2.0 authenticator settings (used when authMode is "saml", "multi-saml", or "multi-all")
     # Configure these in a deployment-specific values file, not here.
     # CustomSAMLAuthenticator:
-    #   idp_metadata_url: ""           # URL to fetch IdP metadata XML (preferred over manual config)
-    #   idp_entity_id: ""              # IdP entity ID (required if not using metadata URL)
-    #   idp_sso_url: ""                # IdP SSO endpoint URL (required if not using metadata URL)
-    #   idp_x509_cert: ""              # IdP signing certificate, base64 body (required if not using metadata URL)
-    #   idp_slo_url: ""                # IdP Single Logout URL (optional)
-    #   sp_entity_id: ""               # SP entity ID (auto-derived if empty)
-    #   sp_acs_url: ""                 # SP ACS URL (auto-derived if empty)
-    #   sp_x509_cert: ""               # SP certificate for signed requests (optional)
-    #   sp_private_key: ""             # SP private key for signed requests (optional)
-    #   username_attribute: ""         # SAML attribute for username (empty = NameID)
-    #   group_attribute: ""            # SAML attribute for group membership (optional)
-    #   login_service: "AMD SSO"       # Label shown on the login button (default: "AMD SSO")
-    #   want_assertions_signed: true   # Require signed assertions (default: true)
-    #   want_response_signed: false    # Require signed response envelope (default: false)
+    #   idp_metadata_url: ""                              # URL to fetch IdP metadata XML
+    #   idp_entity_id: ""                                 # IdP entity ID (required if not using metadata URL)
+    #   idp_sso_url: ""                                   # IdP SSO endpoint URL (required if not using metadata URL)
+    #   idp_x509_cert: ""                                 # IdP signing certificate, base64 body (required if not using metadata URL)
+    #   idp_slo_url: ""                                   # IdP Single Logout URL (optional)
+    #   sp_entity_id: "https://your.domain/hub/saml/metadata"  # SP entity ID (recommended; required behind a reverse proxy)
+    #   sp_acs_url: "https://your.domain/hub/saml/acs"         # SP ACS URL (recommended; required behind a reverse proxy)
+    #   sp_x509_cert: ""                                  # SP certificate for signed requests (optional)
+    #   sp_private_key: ""                                # SP private key for signed requests (optional)
+    #   username_attribute: ""                            # SAML attribute for username (empty = NameID)
+    #   group_attribute: ""                               # SAML attribute for group membership (optional)
+    #   login_service: "AMD SSO"                          # Label shown on the login button (default: "AMD SSO")
+    #   want_assertions_signed: true                      # Require signed assertions (default: true)
+    #   want_response_signed: false                       # Require signed response envelope (default: false)
   service:
     type: ClusterIP
     annotations: {}

@@ -494,8 +494,8 @@ hub:
         - read:org
 
     # ---- SAML 2.0 SSO ----
-    # Used when authMode is "saml" or "multi-saml".
-    # Option A: point to IdP metadata URL (preferred — auto-fetches entity ID,
+    # Used when authMode is "saml", "multi-saml", or "multi-all".
+    # Option A: point to IdP metadata URL (auto-fetches entity ID,
     #           SSO URL, and signing certificate):
     #   CustomSAMLAuthenticator:
     #     idp_metadata_url: "https://your-idp.okta.com/app/APPID/sso/saml/metadata"
@@ -507,9 +507,9 @@ hub:
     #     idp_x509_cert: "<base64-encoded IdP signing certificate>"
     #     idp_slo_url: ""              # IdP Single Logout URL (optional)
     #
-    # SP settings (auto-derived from the request if left empty):
-    #     sp_entity_id: ""             # e.g. "https://your.domain/hub/saml/metadata"
-    #     sp_acs_url: ""               # e.g. "https://your.domain/hub/saml/acs"
+    # SP settings (recommended — required when behind a reverse proxy):
+    #     sp_entity_id: "https://your.domain/hub/saml/metadata"
+    #     sp_acs_url: "https://your.domain/hub/saml/acs"
     #     sp_x509_cert: ""             # SP certificate for signed requests (optional)
     #     sp_private_key: ""           # SP private key for signed requests (optional)
     #

@@ -171,7 +171,7 @@ class CustomSAMLAuthenticator(Authenticator):
         """Derive the external base URL from request headers."""
         request = handler.request
         host = request.headers.get("X-Forwarded-Host", request.host)
-        proto = request.headers.get("X-Forwarded-Proto", request.protocol)
+        proto = "https" if self._force_https else _infer_proto(request)
         return f"{proto}://{host}"
 
     def _get_handler_prefix(self, handler):
