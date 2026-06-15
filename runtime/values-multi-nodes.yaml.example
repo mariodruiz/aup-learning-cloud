@@ -58,6 +58,7 @@ custom:
   # - multi: Backwards-compatible alias for multi-github
   # - multi-github: GitHub OAuth + Local native accounts
   # - multi-saml: SAML SSO + Local native accounts
+  # - multi-all: GitHub OAuth + SAML SSO + Local native accounts
   authMode: "multi"
 
   # GitHub organization name for team-based resource access
@@ -405,7 +406,7 @@ hub:
       scope: []
 
     # ---- SAML 2.0 SSO ----
-    # Used when authMode is "saml" or "multi-saml".
+    # Used when authMode is "saml", "multi-saml", or "multi-all".
     # Option A: point to IdP metadata URL (preferred — auto-fetches entity ID,
     #           SSO URL, and signing certificate):
     #   CustomSAMLAuthenticator:
@@ -427,6 +428,9 @@ hub:
     # Attribute mapping:
     #     username_attribute: ""       # SAML attribute for username (empty = NameID)
     #     group_attribute: ""          # SAML attribute for group membership (optional)
+    #
+    # UI:
+    #     login_service: "AMD SSO"     # Label shown on the login button (default: "AMD SSO")
     #
     # Signature requirements:
     #     want_assertions_signed: true # Require signed assertions (default: true)
