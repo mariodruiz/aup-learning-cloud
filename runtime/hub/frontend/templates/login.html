@@ -345,6 +345,8 @@ AUP Learning Cloud
                         </button>
                     </div>
                 </form>
+                {% else %}
+                {{ custom_html | safe }}
                 {% endif %}
 
             </div>
