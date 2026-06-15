@@ -154,7 +154,8 @@ def test_prepare_tornado_request_basic():
 
     assert result["https"] == "on"
     assert result["http_host"] == "hub.example.com"
-    assert result["script_name"] == ""
+    assert result["script_name"] == "/hub/login"
+    assert result["path_info"] == ""
     assert result["get_data"] == {}
     assert result["post_data"] == {}
 

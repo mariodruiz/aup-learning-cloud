@@ -45,10 +45,12 @@ def _prepare_tornado_request(handler):
     request = handler.request
     host = request.headers.get("X-Forwarded-Host", request.host)
     proto = request.headers.get("X-Forwarded-Proto", request.protocol)
+    path = request.path
     return {
         "https": "on" if proto == "https" else "off",
         "http_host": host,
-        "script_name": "",
+        "script_name": path,
+        "path_info": "",
         "get_data": {k: handler.get_argument(k) for k in handler.request.arguments},
         "post_data": {
             k: v[-1].decode("utf-8", errors="replace")
