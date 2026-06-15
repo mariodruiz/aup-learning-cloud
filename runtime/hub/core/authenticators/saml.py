@@ -60,7 +60,11 @@ def _prepare_tornado_request(handler):
 class CustomSAMLAuthenticator(Authenticator):
     """SAML 2.0 SP-initiated SSO authenticator for JupyterHub."""
 
-    login_service = "Okta SSO"
+    login_service = Unicode(
+        "AMD SSO",
+        config=True,
+        help="Label shown on the login button (e.g. 'AMD SSO', 'Okta SSO').",
+    )
 
     idp_metadata_url = Unicode(
         "",

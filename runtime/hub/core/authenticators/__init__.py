@@ -52,7 +52,7 @@ def create_authenticator(auth_mode: str, **kwargs):
         return CustomGitHubOAuthenticator
     elif auth_mode == "saml":
         return CustomSAMLAuthenticator
-    elif auth_mode in ("multi", "multi-github", "multi-saml"):
+    elif auth_mode in ("multi", "multi-github", "multi-saml", "multi-all"):
         return CustomMultiAuthenticator
     else:
         print(f"[WARN] Unknown auth mode: {auth_mode}, falling back to dummy")

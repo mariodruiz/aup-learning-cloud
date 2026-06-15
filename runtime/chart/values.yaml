@@ -39,6 +39,7 @@ custom:
   #   - saml: SAML 2.0 SSO (e.g., Okta) only
   #   - multi-github: GitHub App + Local native accounts
   #   - multi-saml: SAML SSO + Local native accounts
+  #   - multi-all: GitHub App + SAML SSO + Local native accounts
   #   - multi: Backwards-compatible alias for multi-github
   authMode: "auto-login"
 
@@ -128,6 +129,7 @@ hub:
     #   sp_private_key: ""             # SP private key for signed requests (optional)
     #   username_attribute: ""         # SAML attribute for username (empty = NameID)
     #   group_attribute: ""            # SAML attribute for group membership (optional)
+    #   login_service: "AMD SSO"       # Label shown on the login button (default: "AMD SSO")
     #   want_assertions_signed: true   # Require signed assertions (default: true)
     #   want_response_signed: false    # Require signed response envelope (default: false)
   service:

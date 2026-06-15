@@ -3173,7 +3173,7 @@ properties:
     properties:
       authMode:
         type: string
-        enum: [auto-login, dummy, github, saml, multi, multi-github, multi-saml]
+        enum: [auto-login, dummy, github, saml, multi, multi-github, multi-saml, multi-all]
         description: |
           Authentication mode for the JupyterHub instance.
 
@@ -3183,6 +3183,7 @@ properties:
           - `saml`: SAML 2.0 SSO (e.g., Okta) only
           - `multi-github`: GitHub App + Local native accounts
           - `multi-saml`: SAML SSO + Local native accounts
+          - `multi-all`: GitHub App + SAML SSO + Local native accounts
           - `multi`: Backwards-compatible alias for multi-github
 
       adminUser:

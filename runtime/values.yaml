@@ -51,6 +51,7 @@ custom:
   # - multi: Backwards-compatible alias for multi-github
   # - multi-github: GitHub OAuth + Local native accounts
   # - multi-saml: SAML SSO + Local native accounts
+  # - multi-all: GitHub OAuth + SAML SSO + Local native accounts
   authMode: "auto-login"
 
   # Auto-create admin user on first install
@@ -515,6 +516,9 @@ hub:
     # Attribute mapping:
     #     username_attribute: ""       # SAML attribute for username (empty = NameID)
     #     group_attribute: ""          # SAML attribute for group membership (optional)
+    #
+    # UI:
+    #     login_service: "AMD SSO"     # Label shown on the login button (default: "AMD SSO")
     #
     # Signature requirements:
     #     want_assertions_signed: true # Require signed assertions (default: true)

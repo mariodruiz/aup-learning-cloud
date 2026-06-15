@@ -84,6 +84,14 @@ def setup_hub(c: Any) -> None:
     github_app_private_key_file = z2jh.get_config("hub.config.GitHubOAuthenticator.private_key_file", "")
     github_team_sync_ttl_seconds = z2jh.get_config("hub.config.GitHubOAuthenticator.team_sync_ttl_seconds", 3600)
     saml_group_attribute = z2jh.get_config("hub.config.CustomSAMLAuthenticator.group_attribute", "")
+    is_saml_mode = config.auth_mode in ("saml", "multi-saml", "multi-all")
+
+    def _is_saml_user(username, auth_state):
+        if username.startswith("saml:"):
+            return True
+        if is_saml_mode and auth_state and "saml_attributes" in auth_state:
+            return True
+        return False
 
     # =========================================================================
     # Configure Spawner
@@ -123,7 +131,7 @@ def setup_hub(c: Any) -> None:
         if auth_state is None:
             spawner.github_access_token = None
             # Still assign native users to their default group
-            if not spawner.user.name.startswith("github:"):
+            if not spawner.user.name.startswith("github:") and not _is_saml_user(spawner.user.name, None):
                 try:
                     from core.groups import assign_user_to_group
 
@@ -162,7 +170,7 @@ def setup_hub(c: Any) -> None:
                 assign_user_to_group(spawner.user, "github-users", spawner.user.db)
             except Exception as e:
                 print(f"[GROUPS] Warning: Failed to assign github-users group for {spawner.user.name}: {e}")
-        elif spawner.user.name.startswith("saml:"):
+        elif _is_saml_user(spawner.user.name, auth_state):
             try:
                 from core.groups import assign_user_to_group
 
@@ -210,6 +218,22 @@ def setup_hub(c: Any) -> None:
         ]
     elif config.auth_mode == "multi-saml":
         c.MultiAuthenticator.authenticators = [
+            {
+                "authenticator_class": CustomSAMLAuthenticator,
+                "url_prefix": "/saml",
+            },
+            {
+                "authenticator_class": CustomFirstUseAuthenticator,
+                "url_prefix": "/native",
+                "config": {"prefix": ""},
+            },
+        ]
+    elif config.auth_mode == "multi-all":
+        c.MultiAuthenticator.authenticators = [
+            {
+                "authenticator_class": CustomGitHubOAuthenticator,
+                "url_prefix": "/github",
+            },
             {
                 "authenticator_class": CustomSAMLAuthenticator,
                 "url_prefix": "/saml",
@@ -413,6 +437,9 @@ def setup_hub(c: Any) -> None:
         c.JupyterHub.template_vars = {}
     c.JupyterHub.template_vars["authenticator_mode"] = config.auth_mode  # type: ignore[assignment]
     c.JupyterHub.template_vars["hide_logout"] = config.auth_mode == "auto-login"  # type: ignore[assignment]
+    if config.auth_mode in ("saml", "multi-saml", "multi-all"):
+        saml_login_service = z2jh.get_config("hub.config.CustomSAMLAuthenticator.login_service", "AMD SSO")
+        c.JupyterHub.template_vars["saml_login_service"] = saml_login_service  # type: ignore[assignment]
 
     print(f"[SETUP] Hub setup complete: auth_mode={config.auth_mode}")
     print(f"[SETUP] template_vars: {c.JupyterHub.template_vars}")
