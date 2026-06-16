@@ -30,6 +30,8 @@ from html import escape
 from multiauthenticator import MultiAuthenticator
 from multiauthenticator.multiauthenticator import PREFIX_SEPARATOR
 
+from core.authenticators.saml import SAML_USERNAME_PREFIX
+
 LOCAL_ACCOUNT_PREFIX = "LocalAccount"
 
 _GITHUB_ICON = (
@@ -81,6 +83,17 @@ class CustomMultiAuthenticator(MultiAuthenticator):
     Delegates ``refresh_user`` to the sub-authenticator that owns the user.
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from core.authenticators.saml import CustomSAMLAuthenticator
+
+        # SAML applies its own authoritative "saml:" prefix in authenticate(),
+        # so suppress the library's login_service-derived prefix to avoid
+        # stacking (e.g. "amd sso:saml:user").
+        for authenticator in self._authenticators:
+            if isinstance(authenticator, CustomSAMLAuthenticator):
+                authenticator.prefix = ""
+
     def validate_username(self, username):
         """Reject usernames that could spoof a prefixed authenticator."""
         if not super().validate_username(username):
@@ -91,6 +104,7 @@ class CustomMultiAuthenticator(MultiAuthenticator):
         # from a registered prefix.
         if PREFIX_SEPARATOR in username:
             known_prefixes = [a.username_prefix for a in self._authenticators if a.username_prefix]
+            known_prefixes.append(SAML_USERNAME_PREFIX)
             if not any(username.startswith(p) for p in known_prefixes):
                 return False
         return True
@@ -101,8 +115,14 @@ class CustomMultiAuthenticator(MultiAuthenticator):
         Authenticators with a non-empty prefix are checked first so that
         a catch-all empty prefix (local accounts) never shadows others.
         """
+        from core.authenticators.saml import CustomSAMLAuthenticator
+
         fallback = None
         for authenticator in self._authenticators:
+            if isinstance(authenticator, CustomSAMLAuthenticator):
+                if user.name.startswith(SAML_USERNAME_PREFIX):
+                    return authenticator
+                continue
             prefix = authenticator.username_prefix
             if not prefix:
                 fallback = authenticator

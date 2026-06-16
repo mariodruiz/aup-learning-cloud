@@ -36,6 +36,7 @@ if "traitlets" not in sys.modules:
     traitlets_module = types.ModuleType("traitlets")
     traitlets_module.Bool = lambda default=False, **kw: default
     traitlets_module.Unicode = lambda default="", **kw: default
+    traitlets_module.Int = lambda default=0, **kw: default
     sys.modules["traitlets"] = traitlets_module
 
 if "jupyterhub" not in sys.modules:
@@ -224,7 +225,7 @@ def test_authenticate_normalizes_username():
     }))
 
     assert result is not None
-    assert result["name"] == "alice@example.com"
+    assert result["name"] == "saml:alice@example.com"
     assert result["auth_state"]["saml_attributes"] == {"email": ["alice@example.com"]}
     assert result["auth_state"]["session_index"] == "idx-123"
 
@@ -234,7 +235,15 @@ def test_authenticate_passes_valid_username():
     result = asyncio.run(auth.authenticate(None, data={"username": "bob"}))
 
     assert result is not None
-    assert result["name"] == "bob"
+    assert result["name"] == "saml:bob"
+
+
+def test_authenticate_prefixes_username():
+    auth = _make_auth()
+    result = asyncio.run(auth.authenticate(None, data={"username": "carol@example.com"}))
+
+    assert result is not None
+    assert result["name"].startswith(saml_module.SAML_USERNAME_PREFIX)
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +350,20 @@ def test_build_saml_settings_unsigned_requests():
     assert settings["security"]["signMetadata"] is False
 
 
+def test_build_saml_settings_fail_closed_when_no_signing():
+    auth = _make_auth(
+        idp_entity_id="https://idp.example.com/entity",
+        idp_sso_url="https://idp.example.com/sso",
+        want_assertions_signed=False,
+        want_response_signed=False,
+    )
+    handler = DummyHandler()
+
+    settings = auth._build_saml_settings(handler)
+
+    assert settings["security"]["wantAssertionsSigned"] is True
+
+
 def test_build_saml_settings_security_defaults():
     auth = _make_auth(
         idp_entity_id="https://idp.example.com/entity",
@@ -389,6 +412,7 @@ def test_login_url():
 
 def test_build_saml_settings_fetches_idp_metadata_once(monkeypatch):
     saml_module._cached_idp_metadata = None
+    saml_module._cached_idp_metadata_at = 0.0
 
     call_count = 0
     def mock_parse_remote(url):
@@ -417,3 +441,75 @@ def test_build_saml_settings_fetches_idp_metadata_once(monkeypatch):
     assert call_count == 1
 
     saml_module._cached_idp_metadata = None
+    saml_module._cached_idp_metadata_at = 0.0
+
+
+def test_idp_metadata_refetched_after_ttl(monkeypatch):
+    saml_module._cached_idp_metadata = None
+    saml_module._cached_idp_metadata_at = 0.0
+
+    call_count = 0
+    def mock_parse_remote(url):
+        nonlocal call_count
+        call_count += 1
+        return {"idp": {"entityId": f"https://fetched-{call_count}.example.com"}}
+
+    monkeypatch.setattr(
+        saml_module.OneLogin_Saml2_IdPMetadataParser,
+        "parse_remote",
+        mock_parse_remote,
+    )
+
+    fake_clock = [1000.0]
+    monkeypatch.setattr(saml_module.time, "monotonic", lambda: fake_clock[0])
+
+    auth = _make_auth(
+        idp_metadata_url="https://idp.example.com/metadata",
+        idp_metadata_ttl_seconds=300,
+    )
+
+    first = auth._get_idp_metadata()
+    fake_clock[0] += 301
+    second = auth._get_idp_metadata()
+
+    assert call_count == 2
+    assert first["idp"]["entityId"] != second["idp"]["entityId"]
+
+    saml_module._cached_idp_metadata = None
+    saml_module._cached_idp_metadata_at = 0.0
+
+
+def test_idp_metadata_falls_back_to_stale_on_refresh_failure(monkeypatch):
+    saml_module._cached_idp_metadata = None
+    saml_module._cached_idp_metadata_at = 0.0
+
+    state = {"calls": 0}
+    def mock_parse_remote(url):
+        state["calls"] += 1
+        if state["calls"] == 1:
+            return {"idp": {"entityId": "https://good.example.com"}}
+        raise RuntimeError("IdP unreachable")
+
+    monkeypatch.setattr(
+        saml_module.OneLogin_Saml2_IdPMetadataParser,
+        "parse_remote",
+        mock_parse_remote,
+    )
+
+    fake_clock = [1000.0]
+    monkeypatch.setattr(saml_module.time, "monotonic", lambda: fake_clock[0])
+
+    auth = _make_auth(
+        idp_metadata_url="https://idp.example.com/metadata",
+        idp_metadata_ttl_seconds=300,
+    )
+
+    auth._get_idp_metadata()
+    fake_clock[0] += 301
+    result = auth._get_idp_metadata()
+
+    assert state["calls"] == 2
+    assert result["idp"]["entityId"] == "https://good.example.com"
+
+    saml_module._cached_idp_metadata = None
+    saml_module._cached_idp_metadata_at = 0.0

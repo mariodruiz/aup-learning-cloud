@@ -27,17 +27,21 @@ Designed for Okta integration but compatible with any SAML 2.0 IdP.
 from __future__ import annotations
 
 import logging
+import time
 from jupyterhub.auth import Authenticator
 from jupyterhub.handlers import BaseHandler
 from jupyterhub.utils import url_path_join
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.idp_metadata_parser import OneLogin_Saml2_IdPMetadataParser
 from tornado import web
-from traitlets import Bool, Unicode
+from traitlets import Bool, Int, Unicode
 
 log = logging.getLogger("jupyterhub.auth.saml")
 
+SAML_USERNAME_PREFIX = "saml:"
+
 _cached_idp_metadata: dict | None = None
+_cached_idp_metadata_at: float = 0.0
 
 
 def _infer_proto(request):
@@ -85,6 +89,12 @@ class CustomSAMLAuthenticator(Authenticator):
         "",
         config=True,
         help="URL to fetch IdP metadata XML. Preferred over manual IdP config.",
+    )
+
+    idp_metadata_ttl_seconds = Int(
+        3600,
+        config=True,
+        help="TTL in seconds for cached IdP metadata before re-fetching (picks up cert rotation).",
     )
 
     idp_entity_id = Unicode(
@@ -198,6 +208,17 @@ class CustomSAMLAuthenticator(Authenticator):
         entity_id = self.sp_entity_id or f"{base_url}{prefix}/metadata"
         acs_url = self.sp_acs_url or f"{base_url}{prefix}/acs"
 
+        # Fail closed: never validate zero signatures. If an operator disables
+        # both assertion and response signing, force assertion signing on.
+        want_assertions_signed = self.want_assertions_signed
+        if not want_assertions_signed and not self.want_response_signed:
+            log.critical(
+                "SAML signature verification fully disabled "
+                "(want_assertions_signed and want_response_signed both False); "
+                "forcing want_assertions_signed=True"
+            )
+            want_assertions_signed = True
+
         settings = {
             "strict": True,
             "debug": False,
@@ -220,7 +241,7 @@ class CustomSAMLAuthenticator(Authenticator):
                 "x509cert": self.idp_x509_cert,
             },
             "security": {
-                "wantAssertionsSigned": self.want_assertions_signed,
+                "wantAssertionsSigned": want_assertions_signed,
                 "wantMessagesSigned": self.want_response_signed,
                 "authnRequestsSigned": bool(self.sp_private_key),
                 "nameIdEncrypted": False,
@@ -238,18 +259,44 @@ class CustomSAMLAuthenticator(Authenticator):
             }
 
         # Merge IdP metadata if URL is configured (overrides inline IdP config)
-        global _cached_idp_metadata
         if self.idp_metadata_url:
-            if _cached_idp_metadata is None:
-                log.info("Fetching IdP metadata from %s", self.idp_metadata_url)
-                _cached_idp_metadata = OneLogin_Saml2_IdPMetadataParser.parse_remote(
-                    self.idp_metadata_url
-                )
-            for key in ("idp",):
-                if key in _cached_idp_metadata:
-                    settings[key].update(_cached_idp_metadata[key])
+            metadata = self._get_idp_metadata()
+            if metadata and "idp" in metadata:
+                settings["idp"].update(metadata["idp"])
 
         return settings
+
+    def _get_idp_metadata(self) -> dict | None:
+        """Return cached IdP metadata, refetching when the TTL has expired.
+
+        On a failed refresh, the previously cached metadata is kept so a
+        transient IdP outage does not break logins.
+        """
+        global _cached_idp_metadata, _cached_idp_metadata_at
+
+        fresh = (
+            _cached_idp_metadata is not None
+            and (time.monotonic() - _cached_idp_metadata_at) < self.idp_metadata_ttl_seconds
+        )
+        if fresh:
+            return _cached_idp_metadata
+
+        try:
+            log.info("Fetching IdP metadata from %s", self.idp_metadata_url)
+            _cached_idp_metadata = OneLogin_Saml2_IdPMetadataParser.parse_remote(
+                self.idp_metadata_url
+            )
+            _cached_idp_metadata_at = time.monotonic()
+        except Exception:
+            if _cached_idp_metadata is None:
+                raise
+            log.warning(
+                "Failed to refresh IdP metadata from %s; using cached copy",
+                self.idp_metadata_url,
+                exc_info=True,
+            )
+
+        return _cached_idp_metadata
 
     def login_url(self, base_url):
         return url_path_join(base_url, "login")
@@ -271,7 +318,7 @@ class CustomSAMLAuthenticator(Authenticator):
             "session_index": data.get("session_index"),
         }
 
-        return {"name": username, "auth_state": auth_state}
+        return {"name": f"{SAML_USERNAME_PREFIX}{username}", "auth_state": auth_state}
 
     async def refresh_user(self, user, handler=None):
         return True
@@ -346,8 +393,13 @@ class CustomSAMLAuthenticator(Authenticator):
 
                 self.set_login_cookie(user)
 
+                # RelayState is attacker-controllable; validate it through
+                # JupyterHub's _validate_next_url, which rejects cross-origin
+                # targets and normalises path-confusion payloads.
                 relay_state = self.get_argument("RelayState", "")
-                next_url = relay_state or url_path_join(self.hub.base_url, "home")
+                next_url = self._validate_next_url(relay_state) if relay_state else ""
+                if not next_url:
+                    next_url = url_path_join(self.hub.base_url, "home")
                 self.redirect(next_url)
 
         class SAMLMetadataHandler(BaseHandler):
