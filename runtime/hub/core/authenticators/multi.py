@@ -103,8 +103,11 @@ class CustomMultiAuthenticator(MultiAuthenticator):
         # itself and are legitimate; block them only when they don't come
         # from a registered prefix.
         if PREFIX_SEPARATOR in username:
+            from core.authenticators.saml import CustomSAMLAuthenticator
+
             known_prefixes = [a.username_prefix for a in self._authenticators if a.username_prefix]
-            known_prefixes.append(SAML_USERNAME_PREFIX)
+            if any(isinstance(a, CustomSAMLAuthenticator) for a in self._authenticators):
+                known_prefixes.append(SAML_USERNAME_PREFIX)
             if not any(username.startswith(p) for p in known_prefixes):
                 return False
         return True

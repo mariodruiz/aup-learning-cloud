@@ -40,8 +40,7 @@ log = logging.getLogger("jupyterhub.auth.saml")
 
 SAML_USERNAME_PREFIX = "saml:"
 
-_cached_idp_metadata: dict | None = None
-_cached_idp_metadata_at: float = 0.0
+_idp_metadata_cache: dict[str, tuple[dict, float]] = {}
 
 
 def _infer_proto(request):
@@ -194,10 +193,14 @@ class CustomSAMLAuthenticator(Authenticator):
         """
         path = handler.request.path
         hub_base = handler.hub.base_url.rstrip("/")
-        # Strip the handler-specific suffix to get the prefix
+        # Strip the handler-specific suffix to get the prefix, but only when
+        # the remaining prefix still sits under the hub base path. This avoids
+        # mis-stripping if the hub base itself ends in one of these tokens.
         for suffix in ("/login", "/acs", "/metadata"):
             if path.endswith(suffix):
-                return path[: -len(suffix)]
+                candidate = path[: -len(suffix)]
+                if candidate.startswith(hub_base):
+                    return candidate
         return hub_base
 
     def _build_saml_settings(self, handler):
@@ -269,34 +272,30 @@ class CustomSAMLAuthenticator(Authenticator):
     def _get_idp_metadata(self) -> dict | None:
         """Return cached IdP metadata, refetching when the TTL has expired.
 
+        Cached per metadata URL so multiple IdPs do not clobber each other.
         On a failed refresh, the previously cached metadata is kept so a
         transient IdP outage does not break logins.
         """
-        global _cached_idp_metadata, _cached_idp_metadata_at
+        url = self.idp_metadata_url
+        cached = _idp_metadata_cache.get(url)
 
-        fresh = (
-            _cached_idp_metadata is not None
-            and (time.monotonic() - _cached_idp_metadata_at) < self.idp_metadata_ttl_seconds
-        )
-        if fresh:
-            return _cached_idp_metadata
+        if cached is not None and (time.monotonic() - cached[1]) < self.idp_metadata_ttl_seconds:
+            return cached[0]
 
         try:
-            log.info("Fetching IdP metadata from %s", self.idp_metadata_url)
-            _cached_idp_metadata = OneLogin_Saml2_IdPMetadataParser.parse_remote(
-                self.idp_metadata_url
-            )
-            _cached_idp_metadata_at = time.monotonic()
+            log.info("Fetching IdP metadata from %s", url)
+            metadata = OneLogin_Saml2_IdPMetadataParser.parse_remote(url)
+            _idp_metadata_cache[url] = (metadata, time.monotonic())
+            return metadata
         except Exception:
-            if _cached_idp_metadata is None:
+            if cached is None:
                 raise
             log.warning(
                 "Failed to refresh IdP metadata from %s; using cached copy",
-                self.idp_metadata_url,
+                url,
                 exc_info=True,
             )
-
-        return _cached_idp_metadata
+            return cached[0]
 
     def login_url(self, base_url):
         return url_path_join(base_url, "login")
@@ -367,8 +366,17 @@ class CustomSAMLAuthenticator(Authenticator):
                     attrs = auth.get_attributes()
                     values = attrs.get(authenticator.username_attribute, [])
                     username = values[0] if values else ""
+                    username_source = f"attribute '{authenticator.username_attribute}'"
                 else:
                     username = auth.get_nameid()
+                    username_source = "NameID"
+
+                if username and ":" in username:
+                    log.warning(
+                        "SAML username from %s contains ':' and will be rejected: %s",
+                        username_source,
+                        username,
+                    )
 
                 saml_attributes = auth.get_attributes()
                 session_index = auth.get_session_index()
