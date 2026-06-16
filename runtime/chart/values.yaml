@@ -119,6 +119,7 @@ hub:
     # Configure these in a deployment-specific values file, not here.
     # CustomSAMLAuthenticator:
     #   idp_metadata_url: ""                              # URL to fetch IdP metadata XML
+    #   idp_metadata_ttl_seconds: 3600                    # Re-fetch metadata to pick up cert rotation (default: 3600)
     #   idp_entity_id: ""                                 # IdP entity ID (required if not using metadata URL)
     #   idp_sso_url: ""                                   # IdP SSO endpoint URL (required if not using metadata URL)
     #   idp_x509_cert: ""                                 # IdP signing certificate, base64 body (required if not using metadata URL)
@@ -132,6 +133,7 @@ hub:
     #   login_service: "AMD SSO"                          # Label shown on the login button (default: "AMD SSO")
     #   want_assertions_signed: true                      # Require signed assertions (default: true)
     #   want_response_signed: false                       # Require signed response envelope (default: false)
+    #   # Do NOT set both to false: assertion signing is forced on to avoid accepting unsigned responses.
   service:
     type: ClusterIP
     annotations: {}

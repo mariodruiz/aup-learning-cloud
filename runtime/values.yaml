@@ -499,6 +499,7 @@ hub:
     #           SSO URL, and signing certificate):
     #   CustomSAMLAuthenticator:
     #     idp_metadata_url: "https://your-idp.okta.com/app/APPID/sso/saml/metadata"
+    #     idp_metadata_ttl_seconds: 3600  # re-fetch metadata to pick up cert rotation (default: 3600)
     #
     # Option B: configure IdP settings manually:
     #   CustomSAMLAuthenticator:
@@ -520,7 +521,8 @@ hub:
     # UI:
     #     login_service: "AMD SSO"     # Label shown on the login button (default: "AMD SSO")
     #
-    # Signature requirements:
+    # Signature requirements (do NOT disable both; assertion signing is
+    # forced on if both are false to avoid accepting unsigned responses):
     #     want_assertions_signed: true # Require signed assertions (default: true)
     #     want_response_signed: false  # Require signed response envelope (default: false)
 
