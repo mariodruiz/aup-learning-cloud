@@ -11,4 +11,4 @@ This section provides comprehensive guides for configuring and managing your Jup
 - {doc}`admin-manual` - Run common administrator workflows
 - {doc}`quota-system` - Configure quotas
 - {doc}`monitoring` - Connect Hub metrics to Prometheus and Grafana
-- {doc}`github-oauth-setup` - GitHub OAuth setup
+- {doc}`github-oauth-setup` - GitHub App setup

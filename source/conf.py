@@ -39,6 +39,7 @@ exclude_patterns = []
 
 html_theme = 'sphinx_book_theme'
 html_static_path = ['_static']
+html_favicon = "_static/images/favicon.ico"
 
 # MyST parser settings
 myst_enable_extensions = [

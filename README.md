@@ -47,7 +47,7 @@ source/
 │   ├── authentication-guide.md
 │   ├── user-management.md
 │   ├── quota-system.md
-│   └── github-oauth-setup.md
+│   └── github-app-setup.md
 ├── user-guide/                  # User guides
 │   ├── index.md
 │   └── admin-manual.md

@@ -6,7 +6,7 @@
 - [User Management Guide](./user-management.md) - Admin console and CLI-based user operations
 - [User Quota System](./quota-system.md) - Quota balances, rates, refresh rules, and admin actions
 - [Monitoring Deployment Guide](./monitoring.md) - Prometheus, Grafana, ServiceMonitor, dashboard, and alert setup
-- [GitHub App Setup](./github-oauth-setup.md) - Optional GitHub App integration for private repository access
+- [GitHub App Setup](./github-app-setup.md) - Optional GitHub App integration for private repository access
 - [Configuration Reference](./configuration-reference.md) - Detailed `runtime/values.yaml` and chart configuration
 
 ---
@@ -39,8 +39,8 @@ The current Hub supports four auth modes via `custom.authMode`:
 
 - `auto-login` - Automatically logs everyone in as a shared user for simple installs
 - `dummy` - Accepts any username/password for testing only
-- `github` - GitHub OAuth only
-- `multi` - GitHub OAuth plus native local accounts on a single login page
+- `github` - GitHub App only
+- `multi` - GitHub App plus native local accounts on a single login page
 
 In GitHub-backed modes, the Hub can also sync GitHub team membership into JupyterHub groups and use those groups for resource visibility.
 
@@ -194,7 +194,7 @@ custom:
       - bitbucket.org
 ```
 
-For GitHub App setup details, see [GitHub App Setup](./github-oauth-setup.md).
+For GitHub App setup details, see [GitHub App Setup](./github-app-setup.md).
 
 ### Verify Hub State After A Change
 
@@ -217,4 +217,4 @@ kubectl get cronjobs -n jupyterhub -l app.kubernetes.io/component=quota-refresh
 2. Then read [Authentication Guide](./authentication-guide.md)
 3. For operator tasks, use [User Management Guide](./user-management.md)
 4. For quota-enabled deployments, read [User Quota System](./quota-system.md)
-5. For private repository flows, read [GitHub App Setup](./github-oauth-setup.md)
+5. For private repository flows, read [GitHub App Setup](./github-app-setup.md)

@@ -2,6 +2,10 @@
 
 This guide will walk you through the process of setting up a GitHub App for your JupyterHub deployment.
 
+:::{note}
+This document assumes that you have setup `authMode` to either `github` or `multi` in your runtime yaml configuration file. See details [here](authentication-guide.md).
+:::
+
 ## Prerequisites
 
 1. A GitHub account
@@ -76,9 +80,12 @@ GitHub Apps are the recommended way to integrate with GitHub. They are created u
 :::
 
 1. Go to your organization's GitHub App creation page:
-   `https://github.com/organizations/<your-organization>/settings/apps/new`
+   - `https://github.com/organizations/<your-organization>/settings/apps/new`
+   - or in your Organization `https://github.com/<your-organization>/`, click the **Settings** tab, then in the left panel expand **Developer settings** and click *GitHub Apps*
 
-2. Fill in the basic information:
+2. Click New **GitHub App**.
+
+3. Fill in the basic information:
    - **GitHub App name**: A unique name (e.g., "auplc-hub")
    - **Homepage URL**: Your JupyterHub URL (e.g., `https://your.domain.com`)
    - **Callback URL**: Your OAuth callback URL
@@ -88,7 +95,7 @@ GitHub Apps are the recommended way to integrate with GitHub. They are created u
    - **Request user authorization (OAuth) during installation**: Check
    - **Webhook -> Active**: Uncheck (not needed)
 
-3. Set permissions:
+4. Set permissions:
    - **Repository permissions**:
       - `Contents`: Read-only (for cloning private repos)
       - `Metadata`: Read-only (selected by default)
@@ -99,23 +106,24 @@ GitHub Apps are the recommended way to integrate with GitHub. They are created u
    `Members: Read-only` is required for the Hub's platform-owned team synchronization. Without this organization permission, the Hub cannot list organization teams or team members and logs errors such as `Resource not accessible by integration` when calling the GitHub GraphQL API.
    :::
 
-4. Installation scope:
+5. Installation scope:
    - **Where can this GitHub App be installed?**: Any account
-   - Click **Create GitHub App**
 
-5. After creation, note down the following:
-    - **Client ID**: Displayed on the App's General page (e.g., `Iv23liXXXXXX`)
-    - **Client secret**: Click **Generate a new client secret** -- copy it immediately
+6. Click **Create GitHub App**
+
+7. After creation, note down the following:
     - **App ID**: Displayed on the App's General page. This is different from the Client ID.
-    - **App slug**: The URL-safe name in the App's URL (e.g., `auplc-hub`)
+    - **Client ID**: Displayed on the App's General page (e.g., `Iv23liXXXXXX`). This is different from the App ID.
+    - **Client secret**: Click **Generate a new client secret** -- copy it immediately
+    - **GitHub App name**: The URL-safe name in the App's URL (e.g., `auplc-hub`)
 
-6. Generate a private key:
+8. Generate a **Private key**:
    - On the App's General page, click **Generate a private key**.
    - Store the downloaded `.pem` file as a Kubernetes secret or mount it into the Hub pod by your deployment's secret-management process.
    - Record the mounted file path. You will use it as `hub.config.GitHubOAuthenticator.private_key_file`.
 
-7. Install the GitHub App on the organization:
-   - Open the App's **Install App** page.
+9. Install the GitHub App on the organization:
+   - In the left panel, Open the App's **Install App** page.
    - Install it on the same organization configured as `custom.githubOrgName`.
    - Select the repositories users may access if private repository cloning is enabled.
    - If you later add or change permissions, an organization owner must approve the updated installation permissions.
@@ -124,7 +132,7 @@ GitHub Apps are the recommended way to integrate with GitHub. They are created u
 
 ## Step 5: Configure JupyterHub
 
-1. Open your deployment configuration file (`runtime/values.yaml` or environment-specific override)
+1. Open your deployment configuration file (`runtime/values.yaml` or `values-multi-nodes.yaml` or environment-specific override)
 
 2. Add the GitHub App configuration:
 
@@ -223,7 +231,7 @@ If you are currently using a legacy GitHub OAuth App, follow these steps to migr
 
 ### Migration Steps
 
-1. **Create a GitHub App** under your organization (see Step 4 above)
+1. **Create a GitHub App** under your organization (see [Step 4](#step-4-create-a-github-app) above)
 
 2. **Update `values.yaml`** -- change the OAuth credentials and add GitHub App server-to-server settings:
 
