@@ -51,7 +51,7 @@ AUP Learning Cloud is a tailored JupyterHub deployment designed to provide an in
    jupyterhub/admin-manual
    jupyterhub/quota-system
    jupyterhub/monitoring
-   jupyterhub/github-oauth-setup
+   jupyterhub/github-app-setup
 
 .. toctree::
    :maxdepth: 1
