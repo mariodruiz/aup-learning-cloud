@@ -25,7 +25,7 @@ Provides various authentication methods for JupyterHub.
 
 from core.authenticators.auto_login import AutoLoginAuthenticator
 from core.authenticators.firstuse import CustomFirstUseAuthenticator
-from core.authenticators.github_app import CustomGitHubOAuthenticator, GITHUB_USERNAME_PREFIX
+from core.authenticators.github_app import GITHUB_USERNAME_PREFIX, CustomGitHubOAuthenticator
 from core.authenticators.jwt import RemoteLabAuthenticator
 from core.authenticators.multi import CustomMultiAuthenticator
 
