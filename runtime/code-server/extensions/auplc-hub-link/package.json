@@ -2,7 +2,7 @@
   "name": "auplc-hub-link",
   "displayName": "AUPLC Back to Hub",
   "description": "Adds a status bar shortcut back to JupyterHub.",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "publisher": "amdresearch",
   "license": "MIT",
   "repository": {
