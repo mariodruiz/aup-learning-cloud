@@ -65,6 +65,7 @@ def setup_hub(c: Any) -> None:
     """
     from core import z2jh
     from core.authenticators import (
+        GITHUB_USERNAME_PREFIX,
         CustomFirstUseAuthenticator,
         CustomGitHubOAuthenticator,
         create_authenticator,
@@ -121,7 +122,7 @@ def setup_hub(c: Any) -> None:
         if auth_state is None:
             spawner.github_access_token = None
             # Still assign native users to their default group
-            if not spawner.user.name.startswith("github:"):
+            if not spawner.user.name.startswith(GITHUB_USERNAME_PREFIX):
                 try:
                     from core.groups import assign_user_to_group
 
@@ -131,7 +132,7 @@ def setup_hub(c: Any) -> None:
             return
         spawner.github_access_token = auth_state.get("access_token")
 
-        if spawner.user.name.startswith("github:"):
+        if spawner.user.name.startswith(GITHUB_USERNAME_PREFIX):
             try:
                 from core.groups import sync_github_teams_for_user
 
@@ -160,7 +161,7 @@ def setup_hub(c: Any) -> None:
                 assign_user_to_group(spawner.user, "github-users", spawner.user.db)
             except Exception as e:
                 print(f"[GROUPS] Warning: Failed to assign github-users group for {spawner.user.name}: {e}")
-        elif not spawner.user.name.startswith("github:"):
+        elif not spawner.user.name.startswith(GITHUB_USERNAME_PREFIX):
             # Native user with auth_state but no GitHub teams
             try:
                 from core.groups import assign_user_to_group
