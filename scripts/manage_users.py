@@ -563,9 +563,18 @@ def cmd_set_admin(args, manager: JupyterHubUserManager):
 
 
 def generate_password(length: int = 12) -> str:
-    """Generate a random password"""
-    alphabet = string.ascii_letters + string.digits
-    return "".join(secrets.choice(alphabet) for _ in range(length))
+    """Generate a random password that meets Hub strength requirements."""
+    special = "!@#$%^&*_+-="
+    alphabet = string.ascii_letters + string.digits + special
+    while True:
+        password = "".join(secrets.choice(alphabet) for _ in range(length))
+        if (
+            any(c in string.ascii_uppercase for c in password)
+            and any(c in string.ascii_lowercase for c in password)
+            and any(c in string.digits for c in password)
+            and any(c in special for c in password)
+        ):
+            return password
 
 
 def cmd_set_passwords(args, manager: JupyterHubUserManager):
@@ -611,13 +620,15 @@ def cmd_set_passwords(args, manager: JupyterHubUserManager):
     success, result = manager.batch_set_passwords(batch_entries, force_change=force_change)
 
     if success:
-        succeeded = result.get("succeeded", len(batch_entries))
-        failed_list = result.get("failed", [])
-        print(f"  ✅ Success: {succeeded}")
-        if failed_list:
-            for entry in failed_list:
-                print(f"  ❌ Failed: {entry.get('username', '?')}: {entry.get('error', 'unknown')}")
-            output_data = [e for e in output_data if e["username"] not in {f.get("username") for f in failed_list}]
+        print(f"  ✅ Success: {result.get('success', 0)}")
+        print(f"  ❌ Failed: {result.get('failed', 0)}")
+        failed_usernames = set()
+        for entry in result.get("results", []):
+            if entry.get("status") == "failed":
+                print(f"     {entry.get('username', '?')}: {entry.get('error', 'unknown')}")
+                failed_usernames.add(entry.get("username"))
+        if failed_usernames:
+            output_data = [e for e in output_data if e["username"] not in failed_usernames]
     else:
         error = result.get("error", "Unknown error")
         print(f"  ❌ Batch request failed: {error}")
