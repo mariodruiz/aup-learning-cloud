@@ -50,6 +50,10 @@ custom:
   # - multi: GitHub App + Local accounts
   authMode: "auto-login"
 
+  # GitHub organization name for team-based resource access
+  # Required for github and multi auth modes.
+  # githubOrgName: "<YOUR-ORG-NAME>"
+
   # Auto-create admin user on first install
   adminUser:
     enabled: false

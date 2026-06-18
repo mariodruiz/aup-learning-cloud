@@ -58,7 +58,7 @@ custom:
   authMode: "multi"
 
   # GitHub organization name for team-based resource access
-  githubOrgName: "your-github-org"
+  githubOrgName: "<YOUR-ORG-NAME>"
 
   # Auto-create admin user on first install
   adminUser:
@@ -440,7 +440,7 @@ hub:
       client_id: "TODO"
       client_secret: "TODO"
       allowed_organizations:
-        - your-github-org
+        - <YOUR-ORG-NAME>
       # Use [] for GitHub App credentials. For legacy OAuth Apps, use
       # read:user and read:org instead.
       scope: []
