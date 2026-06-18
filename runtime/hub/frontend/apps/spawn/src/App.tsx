@@ -91,7 +91,7 @@ function App() {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [runtime, setRuntime] = useState(20);
   const [runtimeInput, setRuntimeInput] = useState('20');
-  const [platformName, setPlatformName] = useState(PLATFORM_NAME);
+  const [platformName, setPlatformName] = useState<string>(PLATFORM_NAME);
   const [repoUrl, setRepoUrl] = useState(initialRepoUrl);
   const [repoUrlError, setRepoUrlError] = useState('');
   const [repoValidating, setRepoValidating] = useState(false);

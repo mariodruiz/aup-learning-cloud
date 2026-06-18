@@ -31,7 +31,7 @@ function App() {
   const baseUrl = (jhdata.base_url || '/hub/').replace(/\/+$/, '');
   const basePath = `${baseUrl}/admin`;
 
-  const [platformName, setPlatformName] = useState(PLATFORM_NAME);
+  const [platformName, setPlatformName] = useState<string>(PLATFORM_NAME);
   useEffect(() => {
     fetchPlatformInfo().then(info => setPlatformName(info.platform)).catch(() => {});
   }, []);

@@ -194,7 +194,7 @@ function App() {
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>(0);
 
-  const [platformName, setPlatformName] = useState(PLATFORM_NAME);
+  const [platformName, setPlatformName] = useState<string>(PLATFORM_NAME);
 
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const toggleTheme = useCallback(() => {
