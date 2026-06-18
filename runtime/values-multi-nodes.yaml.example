@@ -204,6 +204,14 @@ custom:
       code-cpu: "ghcr.io/amdresearch/auplc-code-cpu:latest"
       code-gpu: "ghcr.io/amdresearch/auplc-code-gpu:latest"
 
+    # Optional spawn/Home group display order. Groups not listed here are shown
+    # after these entries using the default alphabetical order.
+    # Example: move DEVELOPMENT before COURSE by listing DEVELOPMENT first.
+    groupOrder:
+      - TEACHING LABS
+      - DEVELOPMENT ENVIRONMENT
+      - CUSTOM REPOS
+
     requirements:
       cpu:
         cpu: "0"
@@ -241,7 +249,7 @@ custom:
 
     metadata:
       cpu:
-        group: "CUSTOM REPO"
+        group: "CUSTOM REPOS"
         description: "Basic Python Environment"
         subDescription: "CPU Only Environment"
         accelerator: ""
@@ -249,8 +257,8 @@ custom:
         allowGitClone: true
         resourceType: "notebook"
       code-cpu:
-        group: "DEVELOPMENT"
-        description: "VSCode Server CPU Environment"
+        group: "DEVELOPMENT ENVIRONMENT"
+        description: "VSCode Server - CPU Environment"
         subDescription: "CPU-only development workspace"
         accelerator: ""
         acceleratorKeys: []
@@ -258,7 +266,7 @@ custom:
         launchMode: "code-server"
         resourceType: "browser-ide"
       gpu:
-        group: "CUSTOM REPO"
+        group: "CUSTOM REPOS"
         description: "Basic GPU Environment"
         subDescription: "GPU Accelerated Environment"
         accelerator: "GPU"
@@ -267,8 +275,8 @@ custom:
         allowGitClone: true
         resourceType: "notebook"
       code-gpu:
-        group: "DEVELOPMENT"
-        description: "VSCode Server GPU Environment"
+        group: "DEVELOPMENT ENVIRONMENT"
+        description: "VSCode Server - GPU Environment"
         subDescription: "GPU-accelerated development workspace"
         accelerator: "GPU"
         acceleratorKeys:
@@ -277,7 +285,7 @@ custom:
         launchMode: "code-server"
         resourceType: "browser-ide"
       Course-CV:
-        group: "COURSE"
+        group: "TEACHING LABS"
         description: "Computer Vision Course"
         subDescription: "Suitable for CV experiments with GPU"
         accelerator: "GPU"
@@ -294,7 +302,7 @@ custom:
         #   strix-halo:
         #     image: "ghcr.io/your-org/auplc-cv:latest-gfx1151"
       Course-DL:
-        group: "COURSE"
+        group: "TEACHING LABS"
         description: "Deep Learning Course"
         subDescription: "Suitable for DL experiments with GPU"
         accelerator: "GPU"
@@ -302,7 +310,7 @@ custom:
           - strix-halo
         resourceType: "notebook"
       Course-LLM:
-        group: "COURSE"
+        group: "TEACHING LABS"
         description: "Large Language Models Course"
         subDescription: "Suitable for LLM experiments with GPU"
         accelerator: "GPU"
@@ -310,7 +318,7 @@ custom:
           - strix-halo
         resourceType: "notebook"
       Course-PhySim:
-        group: "COURSE"
+        group: "TEACHING LABS"
         description: "Genesis Physical Simulation Course"
         subDescription: "Suitable for physical simulation experiments with GPU"
         accelerator: "GPU"
