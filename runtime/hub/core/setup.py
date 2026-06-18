@@ -202,6 +202,7 @@ def setup_hub(c: Any) -> None:
         team_resource_mapping=dict(config.teams.mapping),
         github_org=config.github_org_name,
         auth_mode=config.auth_mode,
+        platform_name=config.platform_display_name,
     )
 
     if not hasattr(c.JupyterHub, "extra_handlers") or c.JupyterHub.extra_handlers is None:
@@ -381,6 +382,8 @@ def setup_hub(c: Any) -> None:
         c.JupyterHub.template_vars = {}
     c.JupyterHub.template_vars["authenticator_mode"] = config.auth_mode  # type: ignore[assignment]
     c.JupyterHub.template_vars["hide_logout"] = config.auth_mode == "auto-login"  # type: ignore[assignment]
+    c.JupyterHub.template_vars["cluster_name"] = config.cluster_name  # type: ignore[assignment]
+    c.JupyterHub.template_vars["platform_name"] = config.platform_display_name  # type: ignore[assignment]
 
     print(f"[SETUP] Hub setup complete: auth_mode={config.auth_mode}")
     print(f"[SETUP] template_vars: {c.JupyterHub.template_vars}")

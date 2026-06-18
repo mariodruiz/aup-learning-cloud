@@ -50,6 +50,10 @@ custom:
   # - multi: GitHub App + Local accounts
   authMode: "auto-login"
 
+  # Cluster display name (optional). Appended to "AUP Learning Cloud" in the UI.
+  # Example: "City/University" → "AUP Learning Cloud City/University"
+  clusterName: ""
+
   # Auto-create admin user on first install
   adminUser:
     enabled: false

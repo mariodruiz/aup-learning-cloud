@@ -73,6 +73,7 @@ _handler_config: dict[str, Any] = {
     "default_quota": 0,
     "team_resource_mapping": {},
     "auth_mode": "auto-login",
+    "platform_name": "AUP Learning Cloud",
 }
 
 
@@ -121,6 +122,7 @@ def configure_handlers(
     team_resource_mapping: dict[str, list[str]] | None = None,
     github_org: str = "",
     auth_mode: str = "auto-login",
+    platform_name: str = "AUP Learning Cloud",
 ) -> None:
     """Configure handler module with runtime settings."""
     if accelerator_options is not None:
@@ -134,6 +136,7 @@ def configure_handlers(
         _handler_config["team_resource_mapping"] = team_resource_mapping
     _handler_config["github_org"] = github_org
     _handler_config["auth_mode"] = auth_mode
+    _handler_config["platform_name"] = platform_name
 
 
 # =============================================================================
@@ -1313,14 +1316,15 @@ class PlatformInfoHandler(APIHandler):
     """
 
     async def get(self):
+        name = _handler_config.get("platform_name", "AUP Learning Cloud")
         self.set_header("Content-Type", "application/json")
-        self.set_header("X-Powered-By", "AUP Learning Cloud")
+        self.set_header("X-Powered-By", name)
         self.finish(
             json.dumps(
                 {
-                    "platform": "AUP Learning Cloud",
+                    "platform": name,
                     "vendor": "Advanced Micro Devices, Inc.",
-                    "powered_by": "AUP Learning Cloud",
+                    "powered_by": name,
                     "website": "https://github.com/AMDResearch/aup-learning-cloud",
                 }
             )

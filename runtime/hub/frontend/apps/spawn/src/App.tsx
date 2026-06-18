@@ -19,7 +19,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type { Resource, Accelerator, GitHubRepo } from '@auplc/shared';
-import { validateRepo, fetchGitHubRepos, isCurrentUserGitHub, PLATFORM_NAME } from '@auplc/shared';
+import { validateRepo, fetchGitHubRepos, isCurrentUserGitHub, PLATFORM_NAME, fetchPlatformInfo } from '@auplc/shared';
 
 type Theme = 'light' | 'dark';
 function getInitialTheme(): Theme {
@@ -91,6 +91,7 @@ function App() {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [runtime, setRuntime] = useState(20);
   const [runtimeInput, setRuntimeInput] = useState('20');
+  const [platformName, setPlatformName] = useState(PLATFORM_NAME);
   const [repoUrl, setRepoUrl] = useState(initialRepoUrl);
   const [repoUrlError, setRepoUrlError] = useState('');
   const [repoValidating, setRepoValidating] = useState(false);
@@ -116,6 +117,10 @@ function App() {
   );
 
   const loading = resourcesLoading || acceleratorsLoading || quotaLoading;
+
+  useEffect(() => {
+    fetchPlatformInfo().then(info => setPlatformName(info.platform)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!initialRepoUrl || allowedGitProviders.length === 0) return;
@@ -351,7 +356,7 @@ function App() {
           </button>
         </div>
         <h1>Launch Your Server</h1>
-        <p>Select a resource, configure your environment, and launch on {PLATFORM_NAME}</p>
+        <p>Select a resource, configure your environment, and launch on {platformName}</p>
       </div>
 
       {/* Warnings */}
