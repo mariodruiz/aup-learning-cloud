@@ -418,6 +418,9 @@ hub:
   config:
     JupyterHub:
       redirect_to_server: false
+      # Override the "Learn more" link on the login page (optional):
+      # template_vars:
+      #   login_info_url: "https://amd.com/en/corporate/university-program/learning-cloud.html"
 
     Authenticator:
       allow_all: true

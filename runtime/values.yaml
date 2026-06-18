@@ -467,6 +467,9 @@ hub:
       # Always show Home page first, even when a server is already running.
       # Users can access their running server via the "My Server" button on Home.
       redirect_to_server: false
+      # Template variables available in Jinja templates. Override per deployment.
+      # template_vars:
+      #   login_info_url: "https://amd.com/en/corporate/university-program/learning-cloud.html"
 
     Authenticator:
       allow_all: true
