@@ -144,9 +144,7 @@ class JupyterHubUserManager:
         except requests.exceptions.RequestException as e:
             return False, str(e)
 
-    def batch_set_passwords(
-        self, users: list[dict], force_change: bool = True
-    ) -> tuple[bool, dict]:
+    def batch_set_passwords(self, users: list[dict], force_change: bool = True) -> tuple[bool, dict]:
         """
         Set passwords for multiple users in a single API call.
 
@@ -642,7 +640,9 @@ def cmd_set_passwords(args, manager: JupyterHubUserManager):
             if ok:
                 print(f"  ✅ Set password for: {entry['username']}" + (" (force change)" if force_change else ""))
                 succeeded += 1
-                output_data.append({"username": entry["username"], "password": entry["password"], "force_change": force_change})
+                output_data.append(
+                    {"username": entry["username"], "password": entry["password"], "force_change": force_change}
+                )
             else:
                 print(f"  ❌ Failed: {entry['username']}: {msg}")
                 failed_count += 1
