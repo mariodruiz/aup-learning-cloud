@@ -40,4 +40,5 @@
  * small login bundle doesn't need.
  */
 @import "tailwindcss" source(none);
+@custom-variant dark (&:where([data-bs-theme="dark"], [data-bs-theme="dark"] *));
 @source "../../../templates/**/*.html";
