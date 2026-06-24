@@ -461,10 +461,11 @@ hub:
 
   extraFiles:
     announcement.txt:
-    # If you want to edit the notice on login.html, change here.
+    # Replace stringData with login announcement content to show a notice on login.html.
+    # The default HTML comment is intentionally hidden by the login template.
       mountPath: /usr/local/share/jupyterhub/static/announcement.txt
       stringData: |
-          <!-- no login announcement -->
+          <!-- Add login announcement content here. -->
 
   config:
     # ---- Hub Core ----
