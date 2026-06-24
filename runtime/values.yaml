@@ -448,6 +448,11 @@ hub:
     tag: latest
     pullPolicy: IfNotPresent
 
+  # Optional Jinja template variables for Hub-rendered pages.
+  # Example:
+  #   login_github_helper_text: "Optional helper text shown under the GitHub sign-in button."
+  templateVars: {}
+
   # Additional Python config snippets (executed after core/setup.py)
   # Example:
   #   myconfig: |
@@ -459,7 +464,7 @@ hub:
     # If you want to edit the notice on login.html, change here.
       mountPath: /usr/local/share/jupyterhub/static/announcement.txt
       stringData: |
-          Hello, World!
+          <!-- no login announcement -->
 
   config:
     # ---- Hub Core ----
