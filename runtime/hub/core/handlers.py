@@ -998,6 +998,8 @@ class ResourcesAPIHandler(APIHandler):
                     "acceleratorKeys": list(config.accelerators.keys()),
                     "allowedGitProviders": list(config.git_clone.allowedProviders),
                     "githubAppName": config.git_clone.githubAppName,
+                    "allowPersistenceChoice": config.git_clone.allowPersistenceChoice,
+                    "defaultPersistence": config.git_clone.defaultPersistence,
                 }
             )
         )
