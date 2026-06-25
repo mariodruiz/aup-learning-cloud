@@ -177,7 +177,7 @@ export const CourseCard = memo(function CourseCard({
             <span className="repo-url-hint" aria-label="Git repository hint">
               ?
               <span className="repo-url-tooltip">
-                The repository will be cloned at startup. It is kept after the server stops unless cleanup is selected or enforced by the administrator.
+                The repository will be cloned at startup.
                 {allowedGitProviders.length > 0 && ` Supports: ${allowedGitProviders.join(', ')}.`}
               </span>
             </span>

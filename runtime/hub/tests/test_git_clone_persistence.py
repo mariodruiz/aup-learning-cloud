@@ -118,7 +118,6 @@ def test_invalid_repo_persist_submission_falls_back_to_admin_default():
     assert result is False
 
 
-
 def test_persistent_init_container_sets_env_without_cleanup_lifecycle():
     spawner = make_spawner()
 
