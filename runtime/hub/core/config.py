@@ -138,6 +138,8 @@ class GitCloneSettings(BaseModel):
     maxCloneTimeout: int = 300
     githubAppName: str = ""
     defaultAccessToken: str = ""
+    allowPersistenceChoice: bool = False
+    defaultPersistence: bool = True
 
     model_config = {"extra": "allow"}
 
