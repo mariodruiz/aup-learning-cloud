@@ -56,6 +56,10 @@ custom:
   # - multi: GitHub App + native first-use accounts
   authMode: "multi"
 
+  # Cluster display name (optional). Appended to "AUP Learning Cloud" in the UI.
+  # Example: "City/University" → "AUP Learning Cloud City/University"
+  clusterName: ""
+
   # GitHub organization name for team-based resource access
   githubOrgName: "your-github-org"
 

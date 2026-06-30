@@ -233,6 +233,7 @@ class HubConfig:
         self.auth_mode: str = "auto-login"
         self.single_node_mode: bool = False
         self.github_org_name: str = ""
+        self.cluster_name: str = ""
         self.quota_enabled: bool = False
 
         # Parsed configuration
@@ -270,6 +271,7 @@ class HubConfig:
         # Extract runtime settings
         instance.auth_mode = raw_config.get("authMode", "auto-login")
         instance.github_org_name = raw_config.get("githubOrgName", "")
+        instance.cluster_name = raw_config.get("clusterName", "")
 
         # Single-node mode: from config or auto-enable for auto-login
         single_node_mode = raw_config.get("singleNodeMode")
@@ -332,6 +334,13 @@ class HubConfig:
     # =========================================================================
     # Convenience Properties
     # =========================================================================
+
+    @property
+    def platform_display_name(self) -> str:
+        base = "AUP Learning Cloud"
+        if self.cluster_name:
+            return f"{base} {self.cluster_name}"
+        return base
 
     @property
     def resources(self) -> ResourcesConfig:
