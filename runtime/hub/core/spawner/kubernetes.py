@@ -312,10 +312,33 @@ class RemoteLabKubeSpawner(KubeSpawner):
 
         if repo_url:
             options["repo_url"] = repo_url
+            options["repo_persist"] = self._resolve_repo_persist_option(formdata)
         if repo_branch:
             options["repo_branch"] = repo_branch
 
         return options
+
+    def _resolve_repo_persist_option(self, formdata) -> bool:
+        git_config = self._hub_config.git_clone if self._hub_config else None
+        allow_choice = bool(getattr(git_config, "allowPersistenceChoice", False))
+        default_persistence = bool(getattr(git_config, "defaultPersistence", True))
+
+        if not allow_choice:
+            return default_persistence
+
+        try:
+            raw_value = formdata.get("repo_persist", [None])[0]
+        except Exception:
+            raw_value = None
+
+        if isinstance(raw_value, str):
+            normalized_value = raw_value.strip().lower()
+            if normalized_value == "true":
+                return True
+            if normalized_value == "false":
+                return False
+
+        return default_persistence
 
     def _get_public_hub_home_url(self) -> str:
         """Return the public Hub home URL for links opened from code-server."""
@@ -476,6 +499,7 @@ class RemoteLabKubeSpawner(KubeSpawner):
         repo_name: str,
         home_volume_name: str,
         home_mount_path: str,
+        repo_persist: bool,
         repo_branch: str = "",
         access_token: str = "",
     ) -> dict:
@@ -483,8 +507,8 @@ class RemoteLabKubeSpawner(KubeSpawner):
         Build an init container spec that clones a repository into the home mount path.
 
         The init container mounts the same home PVC as the main container and clones
-        into <home_mount_path>/<repo_name>. A preStop lifecycle hook on the main container
-        removes the directory when the session ends so it does not persist.
+        into <home_mount_path>/<repo_name>. In ephemeral mode, a preStop lifecycle hook
+        on the main container removes the directory when the session ends.
 
         The script is read from core/scripts/git-clone.sh, base64-encoded and decoded
         at runtime to prevent KubeSpawner's _expand_all from treating shell braces as
@@ -495,10 +519,13 @@ class RemoteLabKubeSpawner(KubeSpawner):
             encoded = base64.b64encode(f.read()).decode()
 
         clone_dir = f"{home_mount_path}/{repo_name}"
+        metadata_dir = f"{home_mount_path}/.auplc/git-clones"
 
         env: list[dict[str, Any]] = [
             {"name": "REPO_URL", "value": repo_url},
             {"name": "CLONE_DIR", "value": clone_dir},
+            {"name": "PERSIST_CLONED_REPO", "value": "true" if repo_persist else "false"},
+            {"name": "AUPLC_GIT_METADATA_DIR", "value": metadata_dir},
             {"name": "MAX_CLONE_TIMEOUT", "value": str(self.MAX_CLONE_TIMEOUT)},
         ]
         if repo_branch:
@@ -608,6 +635,13 @@ class RemoteLabKubeSpawner(KubeSpawner):
             env["JOB_RUN_TIME"] = str(runtime_minutes)
 
         return env
+
+    @staticmethod
+    def _with_ephemeral_clone_cleanup(extra_container_config: dict | None, clone_dir: str) -> dict:
+        extra = copy.deepcopy(extra_container_config or {})
+        lifecycle = extra.setdefault("lifecycle", {})
+        lifecycle["preStop"] = {"exec": {"command": ["rm", "-rf", clone_dir]}}
+        return extra
 
     def _get_launch_mode(self, resource_type: str) -> str:
         """Return the configured launch mode for a resource."""
@@ -917,16 +951,24 @@ class RemoteLabKubeSpawner(KubeSpawner):
                     safe_username = self._expand_user_properties("{username}")
                     home_volume_name = f"volume-{safe_username}"
                     home_mount_path = self._get_home_mount_path(home_volume_name)
+                    repo_persist = bool(self.user_options.get("repo_persist", True))
                     init_container = await self._build_git_init_container(
-                        sanitized_url, repo_name, home_volume_name, home_mount_path, repo_branch, access_token
+                        sanitized_url,
+                        repo_name,
+                        home_volume_name,
+                        home_mount_path,
+                        repo_persist,
+                        repo_branch,
+                        access_token,
                     )
                     self.init_containers = [init_container] + list(self.init_containers or [])
 
-                    # preStop lifecycle hook: remove the cloned directory on session end
-                    extra = dict(self.extra_container_config or {})
                     clone_dir = f"{home_mount_path}/{repo_name}"
-                    extra["lifecycle"] = {"preStop": {"exec": {"command": ["rm", "-rf", clone_dir]}}}
-                    self.extra_container_config = extra
+                    if not repo_persist:
+                        self.extra_container_config = self._with_ephemeral_clone_cleanup(
+                            self.extra_container_config,
+                            clone_dir,
+                        )
 
                     self.notebook_dir = home_mount_path
                     if self._launches_code_server(resource_type):

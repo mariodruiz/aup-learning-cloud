@@ -3649,8 +3649,10 @@ properties:
         additionalProperties: false
         description: |
           Git repository cloning configuration.
-          Users can optionally provide a Git URL on the spawn form; the repo is
+          Users can optionally provide a Git URL on the spawn form. The repo is
           cloned into their home directory via an init container at startup.
+          By default, cloned repositories are kept after the user's server stops.
+          Existing unmanaged same-name directories are preserved and not overwritten.
         properties:
           initContainerImage:
             type: string
@@ -3683,6 +3685,19 @@ properties:
               Used as fallback when user provides no PAT and no OAuth token is available.
               Priority: user PAT > OAuth token > defaultAccessToken.
               Helm auto-creates a K8s Secret (jupyterhub-git-default-token) from this value.
+          defaultPersistence:
+            type: boolean
+            description: |
+              Whether cloned repositories are kept by default after the user's server stops.
+              Defaults to true, so cloned repos persist unless an admin sets this
+              to false or allows users to choose ephemeral cleanup. Persistent mode
+              does not auto-pull, reset, or sync repository contents after clone.
+          allowPersistenceChoice:
+            type: boolean
+            description: |
+              Allow users to choose whether cloned repositories persist in the spawn form.
+              When false, the admin default is enforced and no user toggle is shown.
+              When true, the spawn form choice defaults to `defaultPersistence`.
 
       hub:
         type: object
