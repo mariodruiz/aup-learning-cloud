@@ -334,6 +334,7 @@ class CustomSAMLAuthenticator(Authenticator):
                 auth = OneLogin_Saml2_Auth(req, saml_settings)
 
                 next_url = self.get_argument("next", "")
+                next_url = self._validate_next_url(next_url) if next_url else ""
                 redirect_url = auth.login(return_to=next_url)
                 self.redirect(redirect_url)
 
@@ -368,7 +369,7 @@ class CustomSAMLAuthenticator(Authenticator):
                     username = values[0] if values else ""
                     username_source = f"attribute '{authenticator.username_attribute}'"
                 else:
-                    username = auth.get_nameid()
+                    username = auth.get_nameid() or ""
                     username_source = "NameID"
 
                 if username and ":" in username:
@@ -390,6 +391,12 @@ class CustomSAMLAuthenticator(Authenticator):
                 authenticated = await authenticator.authenticate(self, data)
                 if authenticated is None:
                     raise web.HTTPError(401, "SAML authentication failed: invalid username")
+
+                # Enforce blocked/allowed lists — mirrors what login_user() does internally
+                if not await authenticator.check_blocked_user(authenticated["name"]):
+                    raise web.HTTPError(403, "User is blocked")
+                if not await authenticator.check_allowed(authenticated["name"], authenticated):
+                    raise web.HTTPError(403, "User is not allowed")
 
                 user_name = authenticated["name"]
                 user = self.find_user(user_name)

@@ -40,8 +40,6 @@ custom:
   #   - multi-saml: SAML SSO + Local native accounts
   #   - multi-all: GitHub App + SAML SSO + Local native accounts
   #   - multi: Backwards-compatible alias for multi-github
-  #   - github: GitHub App authentication
-  #   - multi: GitHub App + Local accounts
   authMode: "auto-login"
 
   # Cluster display name (optional). Appended to "AUP Learning Cloud" in the UI.
