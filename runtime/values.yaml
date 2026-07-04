@@ -1,5 +1,4 @@
 # Modifications Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
-# Portions of this file consist of AI-generated content.
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
@@ -46,13 +45,22 @@ custom:
   # Authentication mode
   # - auto-login: No credentials required, auto-login as 'student' (for single-node dev)
   # - dummy: Accept any username/password (for testing)
-  # - github: GitHub OAuth authentication
+  # - github: GitHub App authentication
   # - saml: SAML 2.0 SSO (e.g. Okta) only
   # - multi: Backwards-compatible alias for multi-github
   # - multi-github: GitHub OAuth + Local native accounts
   # - multi-saml: SAML SSO + Local native accounts
   # - multi-all: GitHub OAuth + SAML SSO + Local native accounts
+
   authMode: "auto-login"
+
+  # GitHub organization name for team-based resource access
+  # Required for github and multi auth modes.
+  # githubOrgName: "<YOUR-ORG-NAME>"
+
+  # Cluster display name (optional). Appended to "AUP Learning Cloud" in the UI.
+  # Example: "City/University" → "AUP Learning Cloud City/University"
+  clusterName: ""
 
   # Auto-create admin user on first install
   adminUser:
@@ -134,15 +142,15 @@ custom:
   # ============================================================================
   # Git Repository Cloning
   # ============================================================================
-  # Users can provide an optional Git URL on the spawn form; the repo will be
-  # cloned into ~/home at container start via an init container.
+  # Users can provide an optional Git URL on the spawn form. The repo is cloned
+  # into ~/home at container start via an init container.
   #
-  # Private repo access — two independent mechanisms (can be used together):
+  # Private repo access, two independent mechanisms that can be used together:
   #
   #   1. GitHub App (githubAppName)
-  #      For GitHub OAuth users. Users authorize per-repo read-only access via
+  #      For GitHub App users. Users authorize per-repo read-only access via
   #      the GitHub App UI. Token is obtained automatically from OAuth session.
-  #      Requires migrating from OAuth App to GitHub App — see below.
+  #      Requires migrating from OAuth App to GitHub App. See below.
   #
   #   2. Default Access Token (defaultAccessToken)
   #      A bot/service-account PAT configured by the admin. Applied transparently
@@ -165,13 +173,13 @@ custom:
   #        client_secret: "<GitHub App Client Secret>"
   #        scope: []  # GitHub App does not use OAuth scopes
   #   3. Set githubAppName below to the App slug
-  #   4. helm upgrade — existing user sessions continue, new logins use GitHub App
+  #   4. helm upgrade. Existing user sessions continue, new logins use GitHub App.
   #
   gitClone:
     # -- Private Repo Access --
     # GitHub App slug (e.g. "aup-learning-cloud")
     # Enables repo picker UI and automatic OAuth token usage for private repos.
-    # Only effective for GitHub OAuth users; auto-login/native users are unaffected.
+    # Only effective for GitHub App users; auto-login/native users are unaffected.
     githubAppName: ""
     # Default access token for private repos (e.g. a bot/service account PAT).
     # Works for ALL auth modes including auto-login — users don't need to know
@@ -188,6 +196,23 @@ custom:
     maxCloneTimeout: 300
     # Container image used for git operations (must include git and sh)
     initContainerImage: "alpine/git:2.47.2"
+    # -- Persistence Behavior --
+    # Cloned repositories are kept by default after the user's server stops.
+    # Set to false to restore ephemeral cleanup as the admin-enforced default.
+    #
+    # Behavior table:
+    #   defaultPersistence | allowPersistenceChoice | Result
+    #   true               | false                  | Repos are kept after stop.
+    #   false              | false                  | Repos are cleaned when the server stops.
+    #   true or false      | true                   | Users choose on the spawn form. The default checkbox state follows defaultPersistence.
+    #   any                | any                    | Existing unmanaged same-name directories are preserved and not overwritten.
+    #
+    # Persistent mode reuses an existing compatible clone. It does not auto-pull,
+    # reset, or sync repository contents after the first successful clone.
+    defaultPersistence: true
+    # Allow users to choose whether cloned repositories persist in the spawn form.
+    # When false, the admin default is enforced without exposing a user toggle.
+    allowPersistenceChoice: false
 
   # ============================================================================
   # Accelerator Configuration
@@ -257,6 +282,15 @@ custom:
       Course-PhySim: "ghcr.io/amdresearch/auplc-physim:latest"
       # Custom-URL: "ghcr.io/amdresearch/auplc-cv:latest"
 
+    # Optional spawn/Home group display order. Groups not listed here are shown
+    # after these entries using the default alphabetical order.
+    # Example: move DEVELOPMENT before COURSE by listing DEVELOPMENT first.
+    groupOrder:
+      - TEACHING LABS
+      - DEVELOPMENT ENVIRONMENTS
+      - TUTORIALS
+      - CUSTOM REPOS
+
     # Course Resource Requirements
     # Define resource quotas for each course
     requirements:
@@ -298,7 +332,7 @@ custom:
     # Defines display information for each course
     metadata:
       cpu:
-        group: "CUSTOM REPO"
+        group: "CUSTOM REPOS"
         description: "Basic Python Environment"
         subDescription: "CPU Only Environment"
         accelerator: ""
@@ -306,8 +340,8 @@ custom:
         allowGitClone: true
         resourceType: "notebook"
       code-cpu:
-        group: "DEVELOPMENT"
-        description: "Code Server CPU Environment"
+        group: "DEVELOPMENT ENVIRONMENTS"
+        description: "VSCode Server CPU"
         subDescription: "CPU-only development workspace"
         accelerator: ""
         acceleratorKeys: []
@@ -315,7 +349,7 @@ custom:
         launchMode: "code-server"
         resourceType: "browser-ide"
       gpu:
-        group: "CUSTOM REPO"
+        group: "CUSTOM REPOS"
         description: "Basic GPU Environment"
         subDescription: "GPU Accelerated Environment"
         accelerator: "GPU"
@@ -324,8 +358,8 @@ custom:
         allowGitClone: true
         resourceType: "notebook"
       code-gpu:
-        group: "DEVELOPMENT"
-        description: "Code Server GPU Environment"
+        group: "DEVELOPMENT ENVIRONMENTS"
+        description: "VSCode Server GPU"
         subDescription: "GPU-accelerated development workspace"
         accelerator: "GPU"
         acceleratorKeys:
@@ -334,7 +368,7 @@ custom:
         launchMode: "code-server"
         resourceType: "browser-ide"
       Course-CV:
-        group: "COURSE"
+        group: "TEACHING LABS"
         description: "Computer Vision Course"
         subDescription: "Suitable for CV experiments with GPU"
         accelerator: "GPU"
@@ -347,7 +381,7 @@ custom:
         #     image: "ghcr.io/your-org/auplc-cv:<tag-for-r9700>"
         resourceType: "notebook"
       Course-DL:
-        group: "COURSE"
+        group: "TEACHING LABS"
         description: "Deep Learning Course"
         subDescription: "Suitable for DL experiments with GPU"
         accelerator: "GPU"
@@ -355,7 +389,7 @@ custom:
           - strix-halo
         resourceType: "notebook"
       Course-LLM:
-        group: "COURSE"
+        group: "TEACHING LABS"
         description: "Large Language Models Course"
         subDescription: "Suitable for LLM experiments with GPU"
         accelerator: "GPU"
@@ -363,7 +397,7 @@ custom:
           - strix-halo
         resourceType: "notebook"
       Course-PhySim:
-        group: "COURSE"
+        group: "TEACHING LABS"
         description: "Genesis Physical Simulation Course"
         subDescription: "Suitable for physical simulation experiments with GPU"
         accelerator: "GPU"
@@ -453,6 +487,11 @@ hub:
     tag: latest
     pullPolicy: IfNotPresent
 
+  # Optional Jinja template variables for Hub-rendered pages.
+  # Example:
+  #   login_github_helper_text: "Optional helper text shown under the GitHub sign-in button."
+  templateVars: {}
+
   # Additional Python config snippets (executed after core/setup.py)
   # Example:
   #   myconfig: |
@@ -461,10 +500,11 @@ hub:
 
   extraFiles:
     announcement.txt:
-    # If you want to edit the notice on login.html, change here.
+      # Replace stringData with login announcement content to show a notice on login.html.
+      # The default HTML comment is intentionally hidden by the login template.
       mountPath: /usr/local/share/jupyterhub/static/announcement.txt
       stringData: |
-          Hello, World!
+        <!-- Add login announcement content here. -->
 
   config:
     # ---- Hub Core ----
@@ -476,7 +516,7 @@ hub:
     Authenticator:
       allow_all: true
 
-    # ---- GitHub OAuth ----
+    # ---- GitHub App ----
     GitHubOAuthenticator:
       oauth_callback_url: "https://<Your.domain>/hub/github/oauth_callback"
       app_id: ""
@@ -489,9 +529,9 @@ hub:
       client_secret: "TODO"
       allowed_organizations:
         - <YOUR-ORG-NAME>
-      scope:
-        - read:user
-        - read:org
+      # Use [] for GitHub App credentials. For legacy OAuth Apps, use
+      # read:user and read:org instead.
+      scope: []
 
     # ---- SAML 2.0 SSO ----
     # Used when authMode is "saml", "multi-saml", or "multi-all".
@@ -574,7 +614,7 @@ singleuser:
     securityContext:
       fsGroup: 100
       supplementalGroups:
-        - 993  # render group for ROCm GPU access
+        - 993 # render group for ROCm GPU access
 
   storage:
     dynamic:

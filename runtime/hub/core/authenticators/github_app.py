@@ -18,9 +18,9 @@
 # SOFTWARE.
 
 """
-GitHub OAuth Authenticator
+GitHub App Authenticator
 
-Custom GitHub OAuth authenticator with team integration support.
+Custom GitHub App authenticator with team integration support.
 Supports automatic token refresh for GitHub App user-to-server tokens.
 """
 
@@ -34,6 +34,8 @@ from oauthenticator.oauth2 import OAuthCallbackHandler
 from traitlets import Int, Unicode
 
 log = logging.getLogger("jupyterhub.auth.github")
+
+GITHUB_USERNAME_PREFIX = "github:"
 
 
 class _GitHubAppInstallCallbackHandler(OAuthCallbackHandler):
@@ -54,9 +56,10 @@ class _GitHubAppInstallCallbackHandler(OAuthCallbackHandler):
 
 
 class CustomGitHubOAuthenticator(GitHubOAuthenticator):
-    """GitHub OAuth authenticator with access token preservation and refresh."""
+    """GitHub App authenticator with access token preservation and refresh."""
 
     name = "github"
+    prefix = GITHUB_USERNAME_PREFIX
     callback_handler = _GitHubAppInstallCallbackHandler
 
     app_id = Unicode(

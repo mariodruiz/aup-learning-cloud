@@ -18,7 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
 # fullnameOverride and nameOverride distinguishes blank strings, null values,
 # and non-blank strings. For more details, see the configuration reference.
 fullnameOverride: ""
@@ -41,7 +40,13 @@ custom:
   #   - multi-saml: SAML SSO + Local native accounts
   #   - multi-all: GitHub App + SAML SSO + Local native accounts
   #   - multi: Backwards-compatible alias for multi-github
+  #   - github: GitHub App authentication
+  #   - multi: GitHub App + Local accounts
   authMode: "auto-login"
+
+  # Cluster display name (optional). Appended to "AUP Learning Cloud" in the UI.
+  # Example: "City/University" → "AUP Learning Cloud City/University"
+  clusterName: ""
 
   # Auto-create admin user on first install (optional)
   adminUser:

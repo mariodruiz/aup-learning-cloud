@@ -41,7 +41,7 @@ from multiauthenticator import MultiAuthenticator
 from pydantic import ValidationError
 from tornado import web
 
-from core.authenticators import CustomFirstUseAuthenticator
+from core.authenticators import GITHUB_USERNAME_PREFIX, CustomFirstUseAuthenticator
 from core.git_validation import validate_and_sanitize_repo_url
 from core.notifications import get_normalized_notifications
 from core.quota import (
@@ -73,6 +73,7 @@ _handler_config: dict[str, Any] = {
     "default_quota": 0,
     "team_resource_mapping": {},
     "auth_mode": "auto-login",
+    "platform_name": "AUP Learning Cloud",
 }
 
 
@@ -130,6 +131,7 @@ def configure_handlers(
     team_resource_mapping: dict[str, list[str]] | None = None,
     github_org: str = "",
     auth_mode: str = "auto-login",
+    platform_name: str = "AUP Learning Cloud",
 ) -> None:
     """Configure handler module with runtime settings."""
     if accelerator_options is not None:
@@ -143,6 +145,7 @@ def configure_handlers(
         _handler_config["team_resource_mapping"] = team_resource_mapping
     _handler_config["github_org"] = github_org
     _handler_config["auth_mode"] = auth_mode
+    _handler_config["platform_name"] = platform_name
 
 
 # =============================================================================
@@ -977,10 +980,18 @@ class ResourcesAPIHandler(APIHandler):
                 groups_dict[group_name] = []
             groups_dict[group_name].append(resource_data)
 
-        # Build groups list - sort alphabetically, but put CUSTOM REPO last
+        # Build groups list. Configured groups come first; unspecified groups
+        # keep the legacy alphabetical order with low-priority groups last.
         BOTTOM_GROUPS = {"OTHERS", "CUSTOM REPO"}
         groups_list = []
-        sorted_group_names = sorted(groups_dict.keys(), key=lambda x: (x in BOTTOM_GROUPS, x))
+        configured_group_order = {group_name: index for index, group_name in enumerate(config.resources.groupOrder)}
+
+        def group_sort_key(group_name: str) -> tuple[int, int, bool, str]:
+            if group_name in configured_group_order:
+                return (0, configured_group_order[group_name], False, group_name)
+            return (1, 0, group_name in BOTTOM_GROUPS, group_name)
+
+        sorted_group_names = sorted(groups_dict.keys(), key=group_sort_key)
         for group_name in sorted_group_names:
             groups_list.append(
                 {
@@ -999,6 +1010,8 @@ class ResourcesAPIHandler(APIHandler):
                     "acceleratorKeys": list(config.accelerators.keys()),
                     "allowedGitProviders": list(config.git_clone.allowedProviders),
                     "githubAppName": config.git_clone.githubAppName,
+                    "allowPersistenceChoice": config.git_clone.allowPersistenceChoice,
+                    "defaultPersistence": config.git_clone.defaultPersistence,
                 }
             )
         )
@@ -1314,14 +1327,15 @@ class PlatformInfoHandler(APIHandler):
     """
 
     async def get(self):
+        name = _handler_config.get("platform_name", "AUP Learning Cloud")
         self.set_header("Content-Type", "application/json")
-        self.set_header("X-Powered-By", "AUP Learning Cloud")
+        self.set_header("X-Powered-By", name)
         self.finish(
             json.dumps(
                 {
-                    "platform": "AUP Learning Cloud",
+                    "platform": name,
                     "vendor": "Advanced Micro Devices, Inc.",
-                    "powered_by": "AUP Learning Cloud",
+                    "powered_by": name,
                     "website": "https://github.com/AMDResearch/aup-learning-cloud",
                 }
             )
@@ -1592,7 +1606,7 @@ class GroupSyncAPIHandler(APIHandler):
         skipped = 0
 
         for user in self.users.values():
-            if not user.name.startswith("github:"):
+            if not user.name.startswith(GITHUB_USERNAME_PREFIX):
                 skipped += 1
                 continue
 

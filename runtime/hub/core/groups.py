@@ -35,6 +35,7 @@ from contextlib import suppress
 
 import aiohttp
 import jwt
+from core.authenticators.github_app import GITHUB_USERNAME_PREFIX
 from jupyterhub.orm import Group as ORMGroup
 from jupyterhub.user import User as JupyterHubUser
 from sqlalchemy.orm import Session
@@ -549,7 +550,7 @@ async def sync_github_teams_for_user(
     protection. Concurrent spawns for the same user coalesce into one set of
     GitHub team membership checks within the TTL window.
     """
-    if not user.name.startswith("github:") or not app_id:
+    if not user.name.startswith(GITHUB_USERNAME_PREFIX) or not app_id:
         return False
 
     lock = _GITHUB_TEAM_SYNC_LOCKS.setdefault(user.name, asyncio.Lock())
@@ -760,7 +761,7 @@ def resolve_resources_for_user(
             team_resource_mapping.get("native-users", team_resource_mapping.get("official", [])),
         )
 
-    if not username.startswith("github:"):
+    if not username.startswith(GITHUB_USERNAME_PREFIX):
         return team_resource_mapping.get("native-users", team_resource_mapping.get("official", []))
 
     return ["none"]

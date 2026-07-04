@@ -177,7 +177,7 @@ export const CourseCard = memo(function CourseCard({
             <span className="repo-url-hint" aria-label="Git repository hint">
               ?
               <span className="repo-url-tooltip">
-                The repository will be cloned at startup and available during this session only.
+                The repository will be cloned at startup.
                 {allowedGitProviders.length > 0 && ` Supports: ${allowedGitProviders.join(', ')}.`}
               </span>
             </span>
@@ -205,7 +205,7 @@ export const CourseCard = memo(function CourseCard({
             <small className="repo-url-error">{repoUrlError}</small>
           )}
 
-          {/* GitHub App Install/Manage Prompt (only for GitHub OAuth users) */}
+          {/* GitHub App Install/Manage Prompt (only for GitHub App users) */}
           {githubAppName && isCurrentUserGitHub() && (
             <a
               className="github-app-prompt"

@@ -64,12 +64,8 @@ def setup_hub(c: Any) -> None:
         c: JupyterHub configuration object (from get_config())
     """
     from core import z2jh
-    from core.authenticators import (
-        CustomFirstUseAuthenticator,
-        CustomGitHubOAuthenticator,
-        CustomSAMLAuthenticator,
-        create_authenticator,
-    )
+    from core.authenticators import (GITHUB_USERNAME_PREFIX, CustomFirstUseAuthenticator, CustomGitHubOAuthenticator,
+                                     CustomSAMLAuthenticator, create_authenticator)
     from core.config import HubConfig
     from core.database import create_all_tables, init_database
     from core.handlers import configure_handlers, get_handlers
@@ -131,7 +127,7 @@ def setup_hub(c: Any) -> None:
         if auth_state is None:
             spawner.github_access_token = None
             # Still assign native users to their default group
-            if not spawner.user.name.startswith("github:") and not _is_saml_user(spawner.user.name, None):
+            if not spawner.user.name.startswith(GITHUB_USERNAME_PREFIX) and not _is_saml_user(spawner.user.name, None):
                 try:
                     from core.groups import assign_user_to_group
 
@@ -141,7 +137,7 @@ def setup_hub(c: Any) -> None:
             return
         spawner.github_access_token = auth_state.get("access_token")
 
-        if spawner.user.name.startswith("github:"):
+        if spawner.user.name.startswith(GITHUB_USERNAME_PREFIX):
             try:
                 from core.groups import sync_github_teams_for_user
 
@@ -186,7 +182,7 @@ def setup_hub(c: Any) -> None:
                         sync_saml_groups_for_user(spawner.user, saml_groups, spawner.user.db)
             except Exception as e:
                 print(f"[GROUPS] Warning: Failed to assign SAML user group for {spawner.user.name}: {e}")
-        elif not spawner.user.name.startswith("github:"):
+        elif not spawner.user.name.startswith(GITHUB_USERNAME_PREFIX):
             # Native user with auth_state but no GitHub teams
             try:
                 from core.groups import assign_user_to_group
@@ -213,7 +209,7 @@ def setup_hub(c: Any) -> None:
             {
                 "authenticator_class": CustomFirstUseAuthenticator,
                 "url_prefix": "/native",
-                "config": {"prefix": ""},
+                "config": {"prefix": "", "allow_all": True},
             },
         ]
     elif config.auth_mode == "multi-saml":
@@ -258,6 +254,7 @@ def setup_hub(c: Any) -> None:
         team_resource_mapping=dict(config.teams.mapping),
         github_org=config.github_org_name,
         auth_mode=config.auth_mode,
+        platform_name=config.platform_display_name,
     )
 
     if not hasattr(c.JupyterHub, "extra_handlers") or c.JupyterHub.extra_handlers is None:
@@ -276,17 +273,12 @@ def setup_hub(c: Any) -> None:
     # in-place within the default_handlers list so that the native routes
     # point to our protected subclasses.
 
-    from jupyterhub.apihandlers import default_handlers as _api_default_handlers
-    from jupyterhub.apihandlers.groups import (
-        GroupAPIHandler as _OrigGroupAPI,
-    )
-    from jupyterhub.apihandlers.groups import (
-        GroupUsersAPIHandler as _OrigGroupUsersAPI,
-    )
-    from tornado import web
-
     from core.groups import is_readonly_group as _is_readonly
     from core.groups import is_undeletable_group as _is_undeletable
+    from jupyterhub.apihandlers import default_handlers as _api_default_handlers
+    from jupyterhub.apihandlers.groups import GroupAPIHandler as _OrigGroupAPI
+    from jupyterhub.apihandlers.groups import GroupUsersAPIHandler as _OrigGroupUsersAPI
+    from tornado import web
 
     class _ProtectedGroupAPIHandler(_OrigGroupAPI):
         def delete(self, group_name):
@@ -440,6 +432,8 @@ def setup_hub(c: Any) -> None:
     if config.auth_mode in ("saml", "multi-saml", "multi-all"):
         saml_login_service = z2jh.get_config("hub.config.CustomSAMLAuthenticator.login_service", "AMD SSO")
         c.JupyterHub.template_vars["saml_login_service"] = saml_login_service  # type: ignore[assignment]
+    c.JupyterHub.template_vars["cluster_name"] = config.cluster_name  # type: ignore[assignment]
+    c.JupyterHub.template_vars["platform_name"] = config.platform_display_name  # type: ignore[assignment]
 
     print(f"[SETUP] Hub setup complete: auth_mode={config.auth_mode}")
     print(f"[SETUP] template_vars: {c.JupyterHub.template_vars}")
