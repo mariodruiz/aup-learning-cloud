@@ -411,8 +411,7 @@ def test_login_url():
 
 
 def test_build_saml_settings_fetches_idp_metadata_once(monkeypatch):
-    saml_module._cached_idp_metadata = None
-    saml_module._cached_idp_metadata_at = 0.0
+    saml_module._idp_metadata_cache.clear()
 
     call_count = 0
     def mock_parse_remote(url):
@@ -440,13 +439,11 @@ def test_build_saml_settings_fetches_idp_metadata_once(monkeypatch):
     assert settings2["idp"]["entityId"] == "https://fetched.example.com"
     assert call_count == 1
 
-    saml_module._cached_idp_metadata = None
-    saml_module._cached_idp_metadata_at = 0.0
+    saml_module._idp_metadata_cache.clear()
 
 
 def test_idp_metadata_refetched_after_ttl(monkeypatch):
-    saml_module._cached_idp_metadata = None
-    saml_module._cached_idp_metadata_at = 0.0
+    saml_module._idp_metadata_cache.clear()
 
     call_count = 0
     def mock_parse_remote(url):
@@ -475,13 +472,11 @@ def test_idp_metadata_refetched_after_ttl(monkeypatch):
     assert call_count == 2
     assert first["idp"]["entityId"] != second["idp"]["entityId"]
 
-    saml_module._cached_idp_metadata = None
-    saml_module._cached_idp_metadata_at = 0.0
+    saml_module._idp_metadata_cache.clear()
 
 
 def test_idp_metadata_falls_back_to_stale_on_refresh_failure(monkeypatch):
-    saml_module._cached_idp_metadata = None
-    saml_module._cached_idp_metadata_at = 0.0
+    saml_module._idp_metadata_cache.clear()
 
     state = {"calls": 0}
     def mock_parse_remote(url):
@@ -511,5 +506,28 @@ def test_idp_metadata_falls_back_to_stale_on_refresh_failure(monkeypatch):
     assert state["calls"] == 2
     assert result["idp"]["entityId"] == "https://good.example.com"
 
-    saml_module._cached_idp_metadata = None
-    saml_module._cached_idp_metadata_at = 0.0
+    saml_module._idp_metadata_cache.clear()
+
+
+def test_idp_metadata_cached_per_url(monkeypatch):
+    saml_module._idp_metadata_cache.clear()
+
+    def mock_parse_remote(url):
+        return {"idp": {"entityId": url}}
+
+    monkeypatch.setattr(
+        saml_module.OneLogin_Saml2_IdPMetadataParser,
+        "parse_remote",
+        mock_parse_remote,
+    )
+
+    auth_a = _make_auth(idp_metadata_url="https://a.example.com/metadata")
+    auth_b = _make_auth(idp_metadata_url="https://b.example.com/metadata")
+
+    result_a = auth_a._get_idp_metadata()
+    result_b = auth_b._get_idp_metadata()
+
+    assert result_a["idp"]["entityId"] == "https://a.example.com/metadata"
+    assert result_b["idp"]["entityId"] == "https://b.example.com/metadata"
+
+    saml_module._idp_metadata_cache.clear()
