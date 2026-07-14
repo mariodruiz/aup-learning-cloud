@@ -128,6 +128,15 @@ custom:
     allowedOrigins: ["*"]
 
   # ============================================================================
+  # Code Server
+  # ============================================================================
+  # code-server automatically trusts the current public Hub host for outgoing
+  # Back-to-Hub links. Add extra domains only when a deployment intentionally
+  # opens trusted links to additional sites. Use host/domain entries, not URLs.
+  codeServer:
+    extraTrustedDomains: []
+
+  # ============================================================================
   # Public Scheme (TLS termination outside the chart)
   # ============================================================================
   # When TLS is terminated by an external component (Cloudflare tunnel,
@@ -264,6 +273,13 @@ custom:
         amd.com/gpu.product-name: "AMD_Radeon_AI_PRO_R9700"
       env: {}
       quotaRate: 4
+    9600gre:
+      displayName: "AMD Radeon™ RX 9600 GRE (Desktop GPU)"
+      description: "RDNA 4.0 (gfx120x) | Compute Units 32 | 12GB GDDR6"
+      nodeSelector:
+        amd.com/gpu.product-name: "AMD_Radeon_RX_9600_GRE"
+      env: {}
+      quotaRate: 4
 
   # ============================================================================
   # Course Resources Configuration
@@ -330,6 +346,10 @@ custom:
 
     # Course Metadata (for spawn UI)
     # Defines display information for each course
+    # defaultPath is an optional Hub launch-directory override, not the image
+    # WORKDIR. Custom Repo launches always open the cloned repository first. If
+    # defaultPath is omitted or null, Hub does not force a landing path and the
+    # image/application default normally follows the image WORKDIR.
     metadata:
       cpu:
         group: "CUSTOM REPOS"
@@ -338,6 +358,7 @@ custom:
         accelerator: ""
         acceleratorKeys: []
         allowGitClone: true
+        defaultPath: "/home/jovyan"
         resourceType: "notebook"
       code-cpu:
         group: "DEVELOPMENT ENVIRONMENTS"
@@ -347,15 +368,37 @@ custom:
         acceleratorKeys: []
         allowGitClone: true
         launchMode: "code-server"
+        defaultPath: "/home/jovyan"
         resourceType: "browser-ide"
       gpu:
         group: "CUSTOM REPOS"
         description: "Basic GPU Environment"
         subDescription: "GPU Accelerated Environment"
         accelerator: "GPU"
+        # Add only accelerators that this deployment should expose to users.
+        # Image overrides for the curated accelerators are preconfigured below,
+        # so enabling another GPU family normally only requires adding its key
+        # here from custom.accelerators.
+        # If you override GPU resource images with custom tags or registries,
+        # also override the matching acceleratorOverrides entries so accelerator
+        # selection does not fall back to the default latest-* images.
         acceleratorKeys:
           - strix-halo
+        acceleratorOverrides:
+          phx:
+            image: "ghcr.io/amdresearch/auplc-base:latest-gfx110x"
+          strix:
+            image: "ghcr.io/amdresearch/auplc-base:latest-gfx1150"
+          strix-halo:
+            image: "ghcr.io/amdresearch/auplc-base:latest-gfx1151"
+          9070xt:
+            image: "ghcr.io/amdresearch/auplc-base:latest-gfx120x"
+          r9700:
+            image: "ghcr.io/amdresearch/auplc-base:latest-gfx120x"
+          9600gre:
+            image: "ghcr.io/amdresearch/auplc-base:latest-gfx120x"
         allowGitClone: true
+        defaultPath: "/home/jovyan"
         resourceType: "notebook"
       code-gpu:
         group: "DEVELOPMENT ENVIRONMENTS"
@@ -364,8 +407,22 @@ custom:
         accelerator: "GPU"
         acceleratorKeys:
           - strix-halo
+        acceleratorOverrides:
+          phx:
+            image: "ghcr.io/amdresearch/auplc-code-gpu:latest-gfx110x"
+          strix:
+            image: "ghcr.io/amdresearch/auplc-code-gpu:latest-gfx1150"
+          strix-halo:
+            image: "ghcr.io/amdresearch/auplc-code-gpu:latest-gfx1151"
+          9070xt:
+            image: "ghcr.io/amdresearch/auplc-code-gpu:latest-gfx120x"
+          r9700:
+            image: "ghcr.io/amdresearch/auplc-code-gpu:latest-gfx120x"
+          9600gre:
+            image: "ghcr.io/amdresearch/auplc-code-gpu:latest-gfx120x"
         allowGitClone: true
         launchMode: "code-server"
+        defaultPath: "/home/jovyan"
         resourceType: "browser-ide"
       Course-CV:
         group: "TEACHING LABS"
@@ -374,11 +431,20 @@ custom:
         accelerator: "GPU"
         acceleratorKeys:
           - strix-halo
-        # acceleratorOverrides: (optional) per-accelerator image and env overrides
-        #   9070xt:
-        #     image: "ghcr.io/your-org/auplc-cv:<tag-for-9070xt>"
-        #   r9700:
-        #     image: "ghcr.io/your-org/auplc-cv:<tag-for-r9700>"
+        acceleratorOverrides:
+          phx:
+            image: "ghcr.io/amdresearch/auplc-cv:latest-gfx110x"
+          strix:
+            image: "ghcr.io/amdresearch/auplc-cv:latest-gfx1150"
+          strix-halo:
+            image: "ghcr.io/amdresearch/auplc-cv:latest-gfx1151"
+          9070xt:
+            image: "ghcr.io/amdresearch/auplc-cv:latest-gfx120x"
+          r9700:
+            image: "ghcr.io/amdresearch/auplc-cv:latest-gfx120x"
+          9600gre:
+            image: "ghcr.io/amdresearch/auplc-cv:latest-gfx120x"
+        defaultPath: "/opt/workspace/CV"
         resourceType: "notebook"
       Course-DL:
         group: "TEACHING LABS"
@@ -387,6 +453,20 @@ custom:
         accelerator: "GPU"
         acceleratorKeys:
           - strix-halo
+        acceleratorOverrides:
+          phx:
+            image: "ghcr.io/amdresearch/auplc-dl:latest-gfx110x"
+          strix:
+            image: "ghcr.io/amdresearch/auplc-dl:latest-gfx1150"
+          strix-halo:
+            image: "ghcr.io/amdresearch/auplc-dl:latest-gfx1151"
+          9070xt:
+            image: "ghcr.io/amdresearch/auplc-dl:latest-gfx120x"
+          r9700:
+            image: "ghcr.io/amdresearch/auplc-dl:latest-gfx120x"
+          9600gre:
+            image: "ghcr.io/amdresearch/auplc-dl:latest-gfx120x"
+        defaultPath: "/opt/workspace/DL"
         resourceType: "notebook"
       Course-LLM:
         group: "TEACHING LABS"
@@ -395,6 +475,20 @@ custom:
         accelerator: "GPU"
         acceleratorKeys:
           - strix-halo
+        acceleratorOverrides:
+          phx:
+            image: "ghcr.io/amdresearch/auplc-llm:latest-gfx110x"
+          strix:
+            image: "ghcr.io/amdresearch/auplc-llm:latest-gfx1150"
+          strix-halo:
+            image: "ghcr.io/amdresearch/auplc-llm:latest-gfx1151"
+          9070xt:
+            image: "ghcr.io/amdresearch/auplc-llm:latest-gfx120x"
+          r9700:
+            image: "ghcr.io/amdresearch/auplc-llm:latest-gfx120x"
+          9600gre:
+            image: "ghcr.io/amdresearch/auplc-llm:latest-gfx120x"
+        defaultPath: "/opt/workspace/LLM"
         resourceType: "notebook"
       Course-PhySim:
         group: "TEACHING LABS"
@@ -403,6 +497,20 @@ custom:
         accelerator: "GPU"
         acceleratorKeys:
           - strix-halo
+        acceleratorOverrides:
+          phx:
+            image: "ghcr.io/amdresearch/auplc-physim:latest-gfx110x"
+          strix:
+            image: "ghcr.io/amdresearch/auplc-physim:latest-gfx1150"
+          strix-halo:
+            image: "ghcr.io/amdresearch/auplc-physim:latest-gfx1151"
+          9070xt:
+            image: "ghcr.io/amdresearch/auplc-physim:latest-gfx120x"
+          r9700:
+            image: "ghcr.io/amdresearch/auplc-physim:latest-gfx120x"
+          9600gre:
+            image: "ghcr.io/amdresearch/auplc-physim:latest-gfx120x"
+        defaultPath: "/opt/workspace/PhySim"
         resourceType: "notebook"
 
   # ============================================================================
