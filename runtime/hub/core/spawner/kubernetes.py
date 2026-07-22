@@ -68,6 +68,7 @@ NPU_SECURITY_CONFIG = {
 LEGACY_CODE_SERVER_RESOURCES = {"code-cpu", "code-gpu"}
 DEFAULT_LAUNCH_MODE = "jupyterlab"
 CODE_SERVER_LAUNCH_MODE = "code-server"
+DEFAULT_TARGET_PATH = "/home/jovyan"
 
 
 class RemoteLabKubeSpawner(KubeSpawner):
@@ -117,6 +118,9 @@ class RemoteLabKubeSpawner(KubeSpawner):
     # Allowed origins for notebook server WebSocket connections
     notebook_allowed_origins: list[str] = []
 
+    # Extra domains trusted by code-server's outgoing link protection.
+    code_server_extra_trusted_domains: list[str] = []
+
     @classmethod
     def configure_from_config(cls, config: HubConfig) -> None:
         """
@@ -161,6 +165,9 @@ class RemoteLabKubeSpawner(KubeSpawner):
 
         # Extract singleuser allowed origins
         cls.notebook_allowed_origins = list(config.notebook_network.allowedOrigins)
+
+        # Extract code-server link protection settings
+        cls.code_server_extra_trusted_domains = list(config.code_server.extraTrustedDomains)
 
     async def get_user_resources(self) -> list[str]:
         """Get available resources for the user based on their JupyterHub group memberships.
@@ -362,6 +369,53 @@ class RemoteLabKubeSpawner(KubeSpawner):
 
         return hub_path
 
+    @staticmethod
+    def _trusted_domain_from_url(url: str) -> str | None:
+        """Extract a code-server trusted-domain host from an absolute URL."""
+
+        try:
+            parsed = urlparse(str(url).strip())
+        except Exception:
+            return None
+
+        if parsed.scheme not in {"http", "https"}:
+            return None
+        return (parsed.hostname or "").strip().lower() or None
+
+    @staticmethod
+    def _normalize_code_server_trusted_domain(domain: str) -> str | None:
+        """Normalize a configured code-server trusted domain entry."""
+
+        value = str(domain).strip().lower()
+        if not value:
+            return None
+
+        # Administrators should provide host/domain patterns, not full URLs.
+        if "://" in value or "/" in value or "\x00" in value or any(char.isspace() for char in value):
+            return None
+        if value in {"*", "*."}:
+            return None
+
+        return value
+
+    def _get_code_server_trusted_domains(self, hub_url: str) -> str:
+        """Return comma-separated domains trusted by code-server link protection."""
+
+        domains: list[str] = []
+        auto_domain = self._trusted_domain_from_url(hub_url)
+        if auto_domain:
+            domains.append(auto_domain)
+
+        domains.extend(self.code_server_extra_trusted_domains)
+
+        normalized_domains: list[str] = []
+        for domain in domains:
+            normalized = self._normalize_code_server_trusted_domain(domain)
+            if normalized and normalized not in normalized_domains:
+                normalized_domains.append(normalized)
+
+        return ",".join(normalized_domains)
+
     def _validate_and_sanitize_repo_url(self, url: str) -> tuple[bool, str, str]:
         """
         Validate and normalize a repository URL.
@@ -435,7 +489,41 @@ class RemoteLabKubeSpawner(KubeSpawner):
         for vm in self.volume_mounts:
             if vm.get("name") == home_volume_name:
                 return vm["mountPath"]
-        return "/home/jovyan"
+        return DEFAULT_TARGET_PATH
+
+    @staticmethod
+    def _jupyterlab_tree_url_for_target_path(target_path: str) -> str:
+        """Map an absolute container path to a JupyterLab tree URL."""
+        path_without_leading_slash = target_path.lstrip("/")
+        return f"/lab/tree/{quote(path_without_leading_slash, safe='/')}"
+
+    def _resolve_target_path(self, resource_type: str, custom_repo_path: str | None = None) -> str | None:
+        """Resolve the effective landing path for the selected launch target."""
+        if custom_repo_path:
+            return custom_repo_path
+
+        resource_metadata = self._hub_config.get_resource_metadata(resource_type) if self._hub_config else None
+        default_path = str(getattr(resource_metadata, "defaultPath", "") or "").strip()
+
+        # defaultPath is a Hub launch-dir override, not the image WORKDIR.
+        # If it is omitted, preserve the image/application default instead of
+        # guessing a path; this keeps non-standard images in their own WORKDIR.
+        return default_path or None
+
+    def _apply_target_path_mapping(self, resource_type: str, target_path: str | None) -> None:
+        """Apply the effective target path to the selected single-user adapter."""
+        if not target_path:
+            return
+
+        if self._launches_code_server(resource_type):
+            # Hub Spawner.default_url becomes JUPYTERHUB_DEFAULT_URL for single-user servers.
+            # Hub spawn-pending redirects browsers to the server base URL, and code-server
+            # does not consume JUPYTERHUB_DEFAULT_URL. Direct ?folder= URLs work, but spawn
+            # completion does not deliver them, so AUPLC_CODE_WORKDIR is the reliable adapter.
+            self.environment["AUPLC_CODE_WORKDIR"] = target_path
+        else:
+            self.notebook_dir = "/"
+            self.default_url = self._jupyterlab_tree_url_for_target_path(target_path)
 
     async def _create_git_token_secret(self, access_token: str) -> str:
         """Create a K8s Secret containing the git access token.
@@ -795,7 +883,6 @@ class RemoteLabKubeSpawner(KubeSpawner):
             self.args = []
             self.environment["AUPLC_HUB_URL"] = "/hub/home"
             self.environment["AUPLC_LAUNCH_MODE"] = CODE_SERVER_LAUNCH_MODE
-            self.environment["AUPLC_CODE_WORKDIR"] = "/home/jovyan"
 
         # Special configuration for NPU resources
         if resource_type in ["Tutorial-NPU-Resnet", "ROSCON2025-GPU", "ROSCON2025-NPU"]:
@@ -887,7 +974,13 @@ class RemoteLabKubeSpawner(KubeSpawner):
         launches_code_server = self._launches_code_server(resource_type)
 
         if launches_code_server:
-            self.environment["AUPLC_HUB_URL"] = self._get_public_hub_home_url()
+            hub_url = self._get_public_hub_home_url()
+            self.environment["AUPLC_HUB_URL"] = hub_url
+            trusted_domains = self._get_code_server_trusted_domains(hub_url)
+            if trusted_domains:
+                self.environment["AUPLC_CODE_TRUSTED_DOMAINS"] = trusted_domains
+            else:
+                self.environment.pop("AUPLC_CODE_TRUSTED_DOMAINS", None)
 
         # Inject allowed origins into notebook server startup args
         if self.notebook_allowed_origins and not launches_code_server:
@@ -940,6 +1033,8 @@ class RemoteLabKubeSpawner(KubeSpawner):
             self.log.warning(f"Invalid branch name for user {self.user.name}: {repo_branch!r}")
             repo_branch = ""
 
+        custom_repo_path = None
+
         if repo_url:
             is_valid, err_msg, sanitized_url = self._validate_and_sanitize_repo_url(repo_url)
             if not is_valid:
@@ -964,18 +1059,13 @@ class RemoteLabKubeSpawner(KubeSpawner):
                     self.init_containers = [init_container] + list(self.init_containers or [])
 
                     clone_dir = f"{home_mount_path}/{repo_name}"
+                    custom_repo_path = clone_dir
                     if not repo_persist:
                         self.extra_container_config = self._with_ephemeral_clone_cleanup(
                             self.extra_container_config,
                             clone_dir,
                         )
 
-                    self.notebook_dir = home_mount_path
-                    if self._launches_code_server(resource_type):
-                        self.environment["AUPLC_CODE_WORKDIR"] = clone_dir
-                        self.default_url = f"/?folder={quote(clone_dir, safe='/')}"
-                    else:
-                        self.default_url = f"/lab/tree/{repo_name}"
                     self._has_git_init_container = True
                     branch_info = f" (branch: {repo_branch})" if repo_branch else ""
                     self.log.info(
@@ -983,6 +1073,9 @@ class RemoteLabKubeSpawner(KubeSpawner):
                     )
                 except Exception as e:
                     self.log.warning(f"Failed to configure git init container: {e}")
+
+        target_path = self._resolve_target_path(resource_type, custom_repo_path)
+        self._apply_target_path_mapping(resource_type, target_path)
 
         if getattr(self, "_has_git_init_container", False):
             ref_key = f"{self.namespace}/{self.pod_name}"

@@ -42,7 +42,7 @@ The simplest way to deploy AUP Learning Cloud on a single machine in a developme
 
 ```bash
 # Ryzen AI APU only: OEM kernel for ROCm on Ubuntu 24.04 (reboot required)
-sudo apt update && sudo apt install linux-image-6.14.0-1018-oem
+sudo apt update && sudo apt install linux-oem-6.14
 
 # Install Docker
 curl -fsSL https://get.docker.com | sh
@@ -201,6 +201,7 @@ Full documentation is available at: **https://amdresearch.github.io/aup-learning
 - [Authentication Guide](https://amdresearch.github.io/aup-learning-cloud/jupyterhub/authentication-guide.html) - GitHub App and native authentication
 - [User Management Guide](https://amdresearch.github.io/aup-learning-cloud/jupyterhub/user-management.html) - Batch user operations with scripts
 - [User Quota System](https://amdresearch.github.io/aup-learning-cloud/jupyterhub/quota-system.html) - Resource usage tracking and quota management
+- [AUP Learning Cloud Skills](README-SKILL.md) - Agent Skills for deploying and maintaining AUP Learning Cloud
 
 ## Contributing
 
