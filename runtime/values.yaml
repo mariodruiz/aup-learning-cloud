@@ -643,36 +643,32 @@ hub:
 
     # ---- SAML 2.0 SSO ----
     # Used when authMode is "saml", "multi-saml", or "multi-all".
-    # Option A: point to IdP metadata URL (auto-fetches entity ID,
-    #           SSO URL, and signing certificate):
+    #
+    # Option A — IdP metadata URL (recommended; auto-fetches entity ID,
+    #            SSO URL, and signing certificate):
     #   CustomSAMLAuthenticator:
     #     idp_metadata_url: "https://your-idp.okta.com/app/APPID/sso/saml/metadata"
-    #     idp_metadata_ttl_seconds: 3600  # re-fetch metadata to pick up cert rotation (default: 3600)
     #
-    # Option B: configure IdP settings manually:
+    # Option B — manual IdP settings:
     #   CustomSAMLAuthenticator:
     #     idp_entity_id: "http://www.okta.com/ENTITY_ID"
     #     idp_sso_url: "https://your-idp.okta.com/app/APPID/sso/saml"
     #     idp_x509_cert: "<base64-encoded IdP signing certificate>"
-    #     idp_slo_url: ""              # IdP Single Logout URL (optional)
     #
-    # SP settings (recommended — required when behind a reverse proxy):
+    # SP settings (required when behind a reverse proxy):
     #     sp_entity_id: "https://your.domain/hub/saml/metadata"
     #     sp_acs_url: "https://your.domain/hub/saml/acs"
-    #     sp_x509_cert: ""             # SP certificate for signed requests (optional)
-    #     sp_private_key: ""           # SP private key for signed requests (optional)
     #
-    # Attribute mapping:
-    #     username_attribute: ""       # SAML attribute for username (empty = NameID)
-    #     group_attribute: ""          # SAML attribute for group membership (optional)
-    #
-    # UI:
-    #     login_service: "AMD SSO"     # Label shown on the login button (default: "AMD SSO")
-    #
-    # Signature requirements (do NOT disable both; assertion signing is
-    # forced on if both are false to avoid accepting unsigned responses):
-    #     want_assertions_signed: true # Require signed assertions (default: true)
-    #     want_response_signed: false  # Require signed response envelope (default: false)
+    # Defaults (only override if needed):
+    #     idp_metadata_ttl_seconds: 3600  # how often to re-fetch IdP metadata
+    #     idp_slo_url: ""                 # IdP Single Logout URL
+    #     sp_x509_cert: ""                # SP certificate for signed requests
+    #     sp_private_key: ""              # SP private key for signed requests
+    #     username_attribute: ""          # SAML attribute for username (empty = NameID)
+    #     group_attribute: ""             # SAML attribute for group membership
+    #     login_service: "AMD SSO"        # label shown on the login button
+    #     want_assertions_signed: true    # require signed assertions
+    #     want_response_signed: false     # require signed response envelope
 
     # ---- KubeSpawner Prepuller Setup ----
     KubeSpawner:
