@@ -45,9 +45,7 @@ class CustomMultiAuthenticator(MultiAuthenticator):
         super().__init__(*args, **kwargs)
         from core.authenticators.saml import CustomSAMLAuthenticator
 
-        # SAML applies its own authoritative "saml:" prefix in authenticate(),
-        # so suppress the library's login_service-derived prefix to avoid
-        # stacking (e.g. "amd sso:saml:user").
+        # Suppress library prefix to avoid double-prefixing (e.g. "amd sso:saml:user").
         for authenticator in self._authenticators:
             if isinstance(authenticator, CustomSAMLAuthenticator):
                 authenticator.prefix = ""
