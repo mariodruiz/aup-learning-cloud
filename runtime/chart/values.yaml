@@ -34,13 +34,12 @@ custom:
   # Authentication defaults to compatibility auto-login when neither the
   # canonical custom.auth object nor deprecated custom.authMode is provided.
   # Deprecated authMode values retained for one release:
-  #   "auto-login" | "dummy" | "github" | "local" | "multi" | "saml"
+  #   "auto-login" | "dummy" | "github" | "local" | "multi"
   #   - auto-login: No credentials required, auto-login as 'student' (default, for single-node)
   #   - dummy: Accept any username/password (for testing)
   #   - github: GitHub App authentication
   #   - local: Native accounts without GitHub authentication
   #   - multi: GitHub App + native accounts
-  #   - saml: SAML 2.0 SSO only
   # Cluster display name (optional). Appended to "AUP Learning Cloud" in the UI.
   # Example: "City/University" → "AUP Learning Cloud City/University"
   clusterName: ""
@@ -126,13 +125,6 @@ hub:
     JupyterHub:
       admin_access: true
       authenticator_class: dummy
-    # SAML 2.0 authenticator settings (used when auth.saml is enabled)
-    # Configure these in a deployment-specific values file, not here.
-    # CustomSAMLAuthenticator:
-    #   idp_metadata_url: ""
-    #   sp_entity_id: "https://your.domain/hub/saml/metadata"
-    #   sp_acs_url: "https://your.domain/hub/saml/acs"
-    #   login_service: "AMD SSO"
     Spawner:
       http_timeout: 60
   service:

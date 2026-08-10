@@ -3173,7 +3173,7 @@ properties:
     properties:
       authMode:
         type: [string, "null"]
-        enum: [null, auto-login, dummy, github, local, multi, saml]
+        enum: [null, auto-login, dummy, github, local, multi]
         description: |
           Deprecated authentication mode retained for one release. Do not combine
           this field with `custom.auth`.
@@ -3183,15 +3183,15 @@ properties:
           - `github`: GitHub App authentication only
           - `local`: Native accounts without GitHub authentication
           - `multi`: GitHub App + native accounts (recommended for production)
-          - `saml`: SAML 2.0 SSO only (legacy; prefer auth.saml)
 
       auth:
         type: object
         additionalProperties: false
         description: |
           Composable authentication providers. Omitted providers are disabled.
-          Exactly one exclusive provider or a valid combination of
-          native/github/saml must be enabled whenever this object is present.
+          Exactly one of auto-login, dummy, native, GitHub, SAML, or a valid
+          combination (native plus GitHub, native plus SAML, or native plus
+          GitHub plus SAML) must be enabled whenever this object is present.
         properties:
           autoLogin:
             type: boolean

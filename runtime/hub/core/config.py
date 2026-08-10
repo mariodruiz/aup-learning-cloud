@@ -258,7 +258,7 @@ class ParsedConfig(BaseModel):
         return cls.model_validate(raw_config)
 
 
-LegacyAuthMode = Literal["auto-login", "dummy", "github", "local", "multi", "saml"]
+LegacyAuthMode = Literal["auto-login", "dummy", "github", "local", "multi"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -337,12 +337,8 @@ def _legacy_auth_capabilities(mode: str) -> AuthCapabilities:
             return AuthCapabilities(False, False, True, False)
         case "multi":
             return AuthCapabilities(False, False, True, True)
-        case "saml":
-            return AuthCapabilities(False, False, False, False, saml=True)
         case _:
-            raise AuthConfigurationError(
-                "authMode must be one of auto-login, dummy, github, local, multi, or saml"
-            )
+            raise AuthConfigurationError("authMode must be one of auto-login, dummy, github, local, or multi")
 
 
 def _parse_auth_capabilities(raw_config: dict[str, Any]) -> tuple[AuthCapabilities, LegacyAuthMode | None]:
