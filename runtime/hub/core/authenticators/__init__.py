@@ -33,8 +33,6 @@ from core.authenticators.multi import CustomMultiAuthenticator
 from core.authenticators.saml import CustomSAMLAuthenticator
 from core.config import AuthCapabilities, AuthConfigurationError
 
-LOCAL_ACCOUNT_PREFIX = "LocalAccount"
-
 
 def configure_authenticator(c: Any, auth: AuthCapabilities) -> None:
     """Configure the JupyterHub authenticator for validated capabilities."""
@@ -109,6 +107,5 @@ __all__ = [
     "CustomMultiAuthenticator",
     "CustomSAMLAuthenticator",
     "configure_authenticator",
-    "LOCAL_ACCOUNT_PREFIX",
     "GITHUB_USERNAME_PREFIX",
 ]

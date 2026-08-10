@@ -14,16 +14,19 @@ from auth_template_support import (
 from tornado.escape import url_escape
 
 VALID_VARIANTS = {
-    "auto-login": (True, False, False, False),
-    "dummy": (False, True, False, False),
-    "native": (False, False, True, False),
-    "github": (False, False, False, True),
-    "native-github": (False, False, True, True),
+    "auto-login": (True, False, False, False, False),
+    "dummy": (False, True, False, False, False),
+    "native": (False, False, True, False, False),
+    "github": (False, False, False, True, False),
+    "native-github": (False, False, True, True, False),
+    "saml": (False, False, False, False, True),
+    "native-saml": (False, False, True, False, True),
+    "native-github-saml": (False, False, True, True, True),
 }
-INVALID_VARIANTS = tuple(values for values in product((False, True), repeat=4) if values not in VALID_VARIANTS.values())
+INVALID_VARIANTS = tuple(values for values in product((False, True), repeat=5) if values not in VALID_VARIANTS.values())
 
 
-def projected_context(monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool]) -> dict[str, object]:
+def projected_context(monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool, bool]) -> dict[str, object]:
     with loaded_auth_modules(monkeypatch) as modules:
         auth = modules.config.AuthCapabilities(*providers)
         return dict(modules.setup._build_auth_template_vars(auth))
@@ -33,7 +36,7 @@ def projected_context(monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bo
 def test_setup_projects_explicit_auth_template_capabilities(
     monkeypatch: pytest.MonkeyPatch,
     variant: str,
-    providers: tuple[bool, bool, bool, bool],
+    providers: tuple[bool, bool, bool, bool, bool],
 ) -> None:
     context = projected_context(monkeypatch, providers)
 
@@ -50,7 +53,7 @@ def test_setup_projects_explicit_auth_template_capabilities(
 @pytest.mark.parametrize("providers", INVALID_VARIANTS)
 def test_invalid_auth_capabilities_are_rejected_before_render(
     monkeypatch: pytest.MonkeyPatch,
-    providers: tuple[bool, bool, bool, bool],
+    providers: tuple[bool, bool, bool, bool, bool],
 ) -> None:
     with loaded_auth_modules(monkeypatch) as modules:
         auth = modules.config.AuthCapabilities(*providers)
@@ -75,7 +78,7 @@ def test_auth_templates_do_not_branch_on_legacy_mode_names() -> None:
 def test_login_renders_enabled_authentication_controls(
     monkeypatch: pytest.MonkeyPatch,
     variant: str,
-    providers: tuple[bool, bool, bool, bool],
+    providers: tuple[bool, bool, bool, bool, bool],
 ) -> None:
     context = base_context() | projected_context(monkeypatch, providers)
     if variant == "github":
@@ -229,7 +232,7 @@ def test_login_uses_theme_initializer_without_a_toggle_dependency() -> None:
 def test_page_controls_follow_capabilities(
     monkeypatch: pytest.MonkeyPatch,
     variant: str,
-    providers: tuple[bool, bool, bool, bool],
+    providers: tuple[bool, bool, bool, bool, bool],
 ) -> None:
     context = base_context() | projected_context(monkeypatch, providers)
     context["user"] = SimpleNamespace(
@@ -250,7 +253,7 @@ def test_page_controls_follow_capabilities(
 def test_anonymous_login_link_follows_auto_login_capability(
     monkeypatch: pytest.MonkeyPatch,
     variant: str,
-    providers: tuple[bool, bool, bool, bool],
+    providers: tuple[bool, bool, bool, bool, bool],
 ) -> None:
     context = base_context() | projected_context(monkeypatch, providers)
 

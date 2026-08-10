@@ -64,13 +64,16 @@ AUTH_MODE_PROVIDERS = {
     "github": ("github",),
     "local": ("native",),
     "multi": ("native", "github"),
+    "saml": ("saml",),
+    "local-saml": ("native", "saml"),
+    "multi-all": ("native", "github", "saml"),
 }
 
 
 def auth_providers(spec: dict) -> tuple[str, ...]:
     auth_mode = spec.get("auth_mode", "auto-login")
     if not isinstance(auth_mode, str) or auth_mode not in AUTH_MODE_PROVIDERS:
-        die("spec.auth_mode must be one of: auto-login, dummy, github, local, multi")
+        die(f"spec.auth_mode must be one of: {', '.join(AUTH_MODE_PROVIDERS)}")
     return AUTH_MODE_PROVIDERS[auth_mode]
 
 

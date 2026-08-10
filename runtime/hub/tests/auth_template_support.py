@@ -119,6 +119,7 @@ def base_context() -> dict[str, object]:
         "auth_dummy": False,
         "auth_native": False,
         "auth_github": False,
+        "auth_saml": False,
         "password_management_enabled": False,
         "hide_logout": False,
     }

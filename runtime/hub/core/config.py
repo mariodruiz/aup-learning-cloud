@@ -478,7 +478,8 @@ class HubConfig:
         print(
             "[CONFIG]   auth="
             f"auto_login:{instance.auth.auto_login},dummy:{instance.auth.dummy},"
-            f"native:{instance.auth.native},github:{instance.auth.github}"
+            f"native:{instance.auth.native},github:{instance.auth.github},"
+            f"saml:{instance.auth.saml}"
         )
         print(f"[CONFIG]   runtime_limit_enabled={instance.runtime_limit_enabled}")
         print(f"[CONFIG]   quota_enabled={instance.quota_enabled}")
