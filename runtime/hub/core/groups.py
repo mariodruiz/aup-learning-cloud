@@ -35,10 +35,11 @@ from contextlib import suppress
 
 import aiohttp
 import jwt
-from core.authenticators.github_app import GITHUB_USERNAME_PREFIX
 from jupyterhub.orm import Group as ORMGroup
 from jupyterhub.user import User as JupyterHubUser
 from sqlalchemy.orm import Session
+
+from core.authenticators.github_app import GITHUB_USERNAME_PREFIX
 
 log = logging.getLogger("jupyterhub.groups")
 

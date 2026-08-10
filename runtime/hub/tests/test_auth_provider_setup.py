@@ -8,7 +8,7 @@ from pathlib import Path
 import anyio
 import pytest
 from github_authenticator_support import loaded_authenticators
-from provider_setup_support import GITHUB_SETTINGS, make_config
+from provider_setup_support import GITHUB_SETTINGS, SAML_SETTINGS, make_config
 
 ROOT = Path(__file__).resolve().parents[1]
 SETUP = ROOT / "core" / "setup.py"
@@ -31,6 +31,7 @@ def _loaded_setup(
     providers: tuple[bool, bool, bool, bool, bool],
     *,
     fail_setup: bool = False,
+    saml_group_attribute: str | None = None,
 ) -> Iterator[types.SimpleNamespace]:
     with monkeypatch.context() as module_patch:
         for variable in ("JUPYTERHUB_ADMIN_PASSWORD", "JUPYTERHUB_ADMIN_USERNAME", "JUPYTERHUB_API_TOKEN"):
@@ -65,7 +66,11 @@ def _loaded_setup(
                 raise RuntimeError("forced setup failure")
             if key.startswith("hub.config.GitHubOAuthenticator") and not auth.github:
                 raise AssertionError(f"GitHub settings accessed for disabled provider: {key}")
-            return GITHUB_SETTINGS.get(key, default)
+            if key.startswith("hub.config.CustomSAMLAuthenticator") and not auth.saml:
+                raise AssertionError(f"SAML settings accessed for disabled provider: {key}")
+            if key == "hub.config.CustomSAMLAuthenticator.group_attribute" and saml_group_attribute is not None:
+                return saml_group_attribute
+            return {**GITHUB_SETTINGS, **SAML_SETTINGS}.get(key, default)
 
         z2jh.get_config = get_config
         core.z2jh = z2jh
@@ -80,6 +85,7 @@ def _loaded_setup(
         factory_inputs: list[object] = []
         authenticators = _module("core.authenticators")
         authenticators.GITHUB_USERNAME_PREFIX = "github:"
+        authenticators.SAML_USERNAME_PREFIX = "saml:"
 
         def configure_authenticator(c: object, _input: object) -> None:
             factory_inputs.append(_input)
@@ -143,6 +149,11 @@ def _loaded_setup(
             return True
 
         groups.sync_github_teams_for_user = sync_github_teams_for_user
+
+        saml_group_syncs: list[tuple[str, list[str]]] = []
+        groups.sync_saml_groups_for_user = lambda user, saml_groups, _db: saml_group_syncs.append(
+            (user.name, list(saml_groups))
+        )
         groups.is_readonly_group, groups.is_undeletable_group = lambda _group: False, lambda _group: False
         module_patch.setitem(sys.modules, "core.groups", groups)
 
@@ -188,6 +199,7 @@ def _loaded_setup(
             factory_inputs=factory_inputs,
             group_assignments=group_assignments,
             team_syncs=team_syncs,
+            saml_group_syncs=saml_group_syncs,
             authenticator_types=authenticator_types,
             settings_reads=settings_reads,
             handler_configs=handler_configs,
@@ -206,10 +218,16 @@ def _loaded_setup(
         ((False, False, True, True, False), {"native-users": [], "github-users": []}),
         ((False, False, False, False, True), {"saml-users": []}),
         ((False, False, True, False, True), {"native-users": [], "saml-users": []}),
+        (
+            (False, False, True, True, True),
+            {"native-users": [], "github-users": [], "saml-users": []},
+        ),
     ],
 )
 def test_setup_passes_typed_capabilities_and_creates_only_enabled_groups(
-    monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool, bool], expected_groups: dict[str, list[object]]
+    monkeypatch: pytest.MonkeyPatch,
+    providers: tuple[bool, bool, bool, bool, bool],
+    expected_groups: dict[str, list[object]],
 ) -> None:
     with _loaded_setup(monkeypatch, providers) as state:
         state.setup.setup_hub(state.c)
@@ -218,7 +236,10 @@ def test_setup_passes_typed_capabilities_and_creates_only_enabled_groups(
         assert state.c.JupyterHub.load_groups == expected_groups
 
 
-@pytest.mark.parametrize("providers", ((False, False, False, True, False), (False, False, True, True, False)))
+@pytest.mark.parametrize(
+    "providers",
+    ((False, False, False, True, False), (False, False, True, True, False), (False, False, True, True, True)),
+)
 def test_setup_loads_github_settings_for_each_github_capability(
     monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool, bool]
 ) -> None:
@@ -243,7 +264,10 @@ def test_setup_configures_consumers_without_effective_auth_mode(monkeypatch: pyt
         assert "auth_mode" not in state.handler_configs[0]
 
 
-@pytest.mark.parametrize("providers", ((False, False, False, True, False), (False, False, True, True, False)))
+@pytest.mark.parametrize(
+    "providers",
+    ((False, False, False, True, False), (False, False, True, True, False), (False, False, True, True, True)),
+)
 def test_github_prefixed_users_sync_teams_for_each_github_capability(
     monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool, bool]
 ) -> None:
@@ -334,3 +358,52 @@ def test_setup_module_cleanup_survives_a_forced_setup_failure(monkeypatch: pytes
             assert name not in sys.modules
         else:
             assert sys.modules[name] is original_module
+
+
+def test_saml_user_receives_default_group_and_synced_claim_groups(monkeypatch: pytest.MonkeyPatch) -> None:
+    with _loaded_setup(monkeypatch, (False, False, True, False, True)) as state:
+        state.setup.setup_hub(state.c)
+        saml_user = types.SimpleNamespace(name="saml:learner", db=object())
+        spawner = types.SimpleNamespace(user=saml_user)
+
+        anyio.run(
+            state.c.Spawner.auth_state_hook,
+            spawner,
+            {"saml_attributes": {"groups": ["staff", "research"]}},
+        )
+
+        assert state.group_assignments == [("saml:learner", "saml-users")]
+        assert state.saml_group_syncs == [("saml:learner", ["staff", "research"])]
+        assert state.team_syncs == []
+
+
+def test_saml_user_skips_claim_sync_when_no_group_attribute_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    with _loaded_setup(monkeypatch, (False, False, True, False, True), saml_group_attribute="") as state:
+        state.setup.setup_hub(state.c)
+        saml_user = types.SimpleNamespace(name="saml:learner", db=object())
+        spawner = types.SimpleNamespace(user=saml_user)
+
+        anyio.run(state.c.Spawner.auth_state_hook, spawner, {"saml_attributes": {"groups": ["staff"]}})
+
+        assert state.group_assignments == [("saml:learner", "saml-users")]
+        assert state.saml_group_syncs == []
+
+
+@pytest.mark.parametrize("auth_state", [None, {"saml_attributes": {}}])
+def test_saml_identity_is_never_treated_as_a_local_account(
+    monkeypatch: pytest.MonkeyPatch, auth_state: dict[str, object] | None
+) -> None:
+    """A leftover saml: account must not fall through to native-users.
+
+    Regression: the native branch guarded only the GitHub prefix, so in a
+    deployment with SAML disabled a saml: user was assigned the local group.
+    """
+    with _loaded_setup(monkeypatch, (False, False, True, True, False)) as state:
+        state.setup.setup_hub(state.c)
+        stale_saml_user = types.SimpleNamespace(name="saml:formerly", db=object())
+        spawner = types.SimpleNamespace(user=stale_saml_user)
+
+        anyio.run(state.c.Spawner.auth_state_hook, spawner, auth_state)
+
+        assert state.group_assignments == []
+        assert state.team_syncs == []

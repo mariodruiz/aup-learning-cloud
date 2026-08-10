@@ -25,8 +25,18 @@ VALID_VARIANTS = {
 }
 INVALID_VARIANTS = tuple(values for values in product((False, True), repeat=5) if values not in VALID_VARIANTS.values())
 
+# Every native-inclusive variant renders the local username/password form, so
+# these must stay in step with the composed branches in login.html.
+NATIVE_VARIANTS = frozenset({"native", "native-github", "native-saml", "native-github-saml"})
+PASSWORD_FORM_VARIANTS = NATIVE_VARIANTS | {"dummy"}
+# Native-only and dummy post to /hub/login; composed modes post to the
+# prefixed /hub/native/login route owned by the MultiAuthenticator child.
+PREFIXED_NATIVE_FORM_VARIANTS = NATIVE_VARIANTS - {"native"}
 
-def projected_context(monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool, bool]) -> dict[str, object]:
+
+def projected_context(
+    monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool, bool]
+) -> dict[str, object]:
     with loaded_auth_modules(monkeypatch) as modules:
         auth = modules.config.AuthCapabilities(*providers)
         return dict(modules.setup._build_auth_template_vars(auth))
@@ -43,10 +53,10 @@ def test_setup_projects_explicit_auth_template_capabilities(
     assert context == {
         "auth_auto_login": variant == "auto-login",
         "auth_dummy": variant == "dummy",
-        "auth_native": variant in {"native", "native-github", "native-saml", "native-github-saml"},
+        "auth_native": variant in NATIVE_VARIANTS,
         "auth_github": variant in {"github", "native-github", "native-github-saml"},
         "auth_saml": variant in {"saml", "native-saml", "native-github-saml"},
-        "password_management_enabled": variant in {"native", "native-github", "native-saml", "native-github-saml"},
+        "password_management_enabled": variant in NATIVE_VARIANTS,
         "hide_logout": variant == "auto-login",
     }
 
@@ -90,10 +100,8 @@ def test_login_renders_enabled_authentication_controls(
     password_toggles = [button for button in probe.buttons if "password-toggle" in (button.get("class") or "").split()]
     visible_text = " ".join(probe.text)
 
-    assert ("username" in input_names and "password" in input_names) is (
-        variant in {"dummy", "native", "native-github"}
-    )
-    assert len(password_toggles) == (1 if variant in {"dummy", "native", "native-github"} else 0)
+    assert ("username" in input_names and "password" in input_names) is (variant in PASSWORD_FORM_VARIANTS)
+    assert len(password_toggles) == (1 if variant in PASSWORD_FORM_VARIANTS else 0)
     assert all(button.get("aria-label") == "Show password" for button in password_toggles)
     if variant == "dummy":
         assert "Development Mode - Any username/password accepted" in visible_text
@@ -101,10 +109,12 @@ def test_login_renders_enabled_authentication_controls(
         assert "Development Mode" not in visible_text
     assert ("/hub/login?next=/hub/home" in form_actions) is (variant in {"dummy", "native"})
     assert probe.hrefs.count("/hub/oauth_login?next=/hub/home") == (2 if variant == "github" else 0)
-    assert ("/hub/github/oauth_login?next=/hub/home" in probe.hrefs) is (variant == "native-github")
-    assert ("/hub/native/login?next=/hub/home" in form_actions) is (variant == "native-github")
+    assert ("/hub/github/oauth_login?next=/hub/home" in probe.hrefs) is (
+        variant in {"native-github", "native-github-saml"}
+    )
+    assert ("/hub/native/login?next=/hub/home" in form_actions) is (variant in PREFIXED_NATIVE_FORM_VARIANTS)
     assert "auplc-powered-by-footer" in probe.ids
-    if variant in {"dummy", "native", "native-github"}:
+    if variant in PASSWORD_FORM_VARIANTS:
         assert any(field.get("name") == "_xsrf" and field.get("value") == "csrf-token" for field in probe.inputs)
 
 
@@ -116,9 +126,12 @@ def _classes(attributes: dict[str, str | None]) -> set[str]:
     return set((attributes.get("class") or "").split())
 
 
-def test_native_login_controls_share_the_rendered_dom_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("composed_variant", sorted(PREFIXED_NATIVE_FORM_VARIANTS))
+def test_native_login_controls_share_the_rendered_dom_contract(
+    monkeypatch: pytest.MonkeyPatch, composed_variant: str
+) -> None:
     native_context = base_context() | projected_context(monkeypatch, VALID_VARIANTS["native"])
-    composed_context = base_context() | projected_context(monkeypatch, VALID_VARIANTS["native-github"])
+    composed_context = base_context() | projected_context(monkeypatch, VALID_VARIANTS[composed_variant])
 
     native = probe_html(template_environment().get_template("login.html").render(**native_context))
     composed = probe_html(template_environment().get_template("login.html").render(**composed_context))
@@ -246,8 +259,8 @@ def test_page_controls_follow_capabilities(
     probe = probe_html(html)
 
     assert ("logout" in probe.ids) is (variant != "auto-login")
-    assert ("change-password" in probe.ids) is (variant in {"native", "native-github", "native-saml", "native-github-saml"})
-    assert ("auth/check-force-password-change" in html) is (variant in {"native", "native-github", "native-saml", "native-github-saml"})
+    assert ("change-password" in probe.ids) is (variant in NATIVE_VARIANTS)
+    assert ("auth/check-force-password-change" in html) is (variant in NATIVE_VARIANTS)
 
 
 @pytest.mark.parametrize(("variant", "providers"), VALID_VARIANTS.items())
@@ -298,7 +311,7 @@ def test_password_templates_render_controls_only_for_native_capability(
 
     probe = probe_html(template_environment().get_template(template_name).render(**context))
 
-    assert bool(probe.forms) is (variant in {"native", "native-github", "native-saml", "native-github-saml"})
+    assert bool(probe.forms) is (variant in NATIVE_VARIANTS)
 
 
 def test_attribution_footer_is_after_all_template_blocks_and_renders() -> None:

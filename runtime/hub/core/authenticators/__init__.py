@@ -30,7 +30,7 @@ from core.authenticators.firstuse import CustomFirstUseAuthenticator
 from core.authenticators.github_app import GITHUB_USERNAME_PREFIX, CustomGitHubOAuthenticator
 from core.authenticators.jwt import RemoteLabAuthenticator
 from core.authenticators.multi import CustomMultiAuthenticator
-from core.authenticators.saml import CustomSAMLAuthenticator
+from core.authenticators.saml import SAML_USERNAME_PREFIX, CustomSAMLAuthenticator
 from core.config import AuthCapabilities, AuthConfigurationError
 
 
@@ -69,7 +69,11 @@ def configure_authenticator(c: Any, auth: AuthCapabilities) -> None:
             c.JupyterHub.authenticator_class = CustomMultiAuthenticator
             c.MultiAuthenticator.allow_all = True
             c.MultiAuthenticator.authenticators = [
-                {"authenticator_class": CustomSAMLAuthenticator, "url_prefix": "/saml"},
+                {
+                    "authenticator_class": CustomSAMLAuthenticator,
+                    "url_prefix": "/saml",
+                    "config": {"allow_all": True},
+                },
                 {
                     "authenticator_class": CustomFirstUseAuthenticator,
                     "url_prefix": "/native",
@@ -82,7 +86,11 @@ def configure_authenticator(c: Any, auth: AuthCapabilities) -> None:
             c.MultiAuthenticator.allow_all = True
             c.MultiAuthenticator.authenticators = [
                 {"authenticator_class": CustomGitHubOAuthenticator, "url_prefix": "/github"},
-                {"authenticator_class": CustomSAMLAuthenticator, "url_prefix": "/saml"},
+                {
+                    "authenticator_class": CustomSAMLAuthenticator,
+                    "url_prefix": "/saml",
+                    "config": {"allow_all": True},
+                },
                 {
                     "authenticator_class": CustomFirstUseAuthenticator,
                     "url_prefix": "/native",

@@ -120,6 +120,41 @@ def test_factory_configures_authenticator_for_canonical_capabilities(
             ]
 
 
+@pytest.mark.parametrize(
+    ("capabilities", "expected_children"),
+    [
+        ((False, False, True, False, True), ("/saml", "/native")),
+        ((False, False, True, True, True), ("/github", "/saml", "/native")),
+    ],
+)
+def test_factory_grants_allow_all_to_the_saml_child_in_every_composition(
+    monkeypatch: pytest.MonkeyPatch,
+    capabilities: tuple[bool, bool, bool, bool, bool],
+    expected_children: tuple[str, ...],
+) -> None:
+    """MultiAuthenticator.allow_all does not propagate to sub-authenticators.
+
+    Regression: the SAML child carried no config, so it inherited
+    ``allow_all=False`` and every SAML login was rejected in composed mode
+    even though the wrapper was permissive.
+    """
+    with _loaded_factory(monkeypatch) as (factory, config):
+        c = types.SimpleNamespace(
+            JupyterHub=types.SimpleNamespace(),
+            Authenticator=types.SimpleNamespace(),
+            GitHubOAuthenticator=types.SimpleNamespace(),
+            MultiAuthenticator=types.SimpleNamespace(),
+        )
+        factory.configure_authenticator(c, config.AuthCapabilities(*capabilities))
+
+        children = c.MultiAuthenticator.authenticators
+        assert tuple(child["url_prefix"] for child in children) == expected_children
+
+        saml_child = next(child for child in children if child["url_prefix"] == "/saml")
+        assert saml_child["authenticator_class"] is factory.CustomSAMLAuthenticator
+        assert saml_child["config"]["allow_all"] is True
+
+
 def test_factory_keeps_multi_github_allow_all_available_for_later_operator_override(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

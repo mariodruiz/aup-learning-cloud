@@ -28,8 +28,6 @@ from __future__ import annotations
 from multiauthenticator import MultiAuthenticator
 from multiauthenticator.multiauthenticator import PREFIX_SEPARATOR
 
-from core.authenticators.saml import SAML_USERNAME_PREFIX
-
 
 class CustomMultiAuthenticator(MultiAuthenticator):
     """
@@ -37,15 +35,6 @@ class CustomMultiAuthenticator(MultiAuthenticator):
 
     Delegates ``refresh_user`` to the sub-authenticator that owns the user.
     """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        from core.authenticators.saml import CustomSAMLAuthenticator
-
-        # Suppress library prefix to avoid double-prefixing (e.g. "amd sso:saml:user").
-        for authenticator in self._authenticators:
-            if isinstance(authenticator, CustomSAMLAuthenticator):
-                authenticator.prefix = ""
 
     def validate_username(self, username):
         """Reject usernames that could spoof a prefixed authenticator."""
@@ -56,14 +45,21 @@ class CustomMultiAuthenticator(MultiAuthenticator):
         # itself and are legitimate; block them only when they don't come
         # from a registered prefix.
         if PREFIX_SEPARATOR in username:
-            from core.authenticators.saml import CustomSAMLAuthenticator
-
-            known_prefixes = [a.username_prefix for a in self._authenticators if a.username_prefix]
-            if any(isinstance(a, CustomSAMLAuthenticator) for a in self._authenticators):
-                known_prefixes.append(SAML_USERNAME_PREFIX)
+            known_prefixes = [p for p in map(self._identity_prefix, self._authenticators) if p]
             if not any(username.startswith(p) for p in known_prefixes):
                 return False
         return True
+
+    @staticmethod
+    def _identity_prefix(authenticator):
+        """Return the username prefix an authenticator owns.
+
+        Authenticators that prefix usernames themselves (SAML) advertise it
+        via ``identity_prefix``; the rest use the prefix MultiAuthenticator
+        derives for them. Read by name rather than by class so this module
+        never imports its sub-authenticators at call time.
+        """
+        return getattr(authenticator, "identity_prefix", "") or authenticator.username_prefix
 
     def _find_authenticator_for_user(self, user):
         """Return the sub-authenticator whose prefix matches *user.name*.
@@ -71,15 +67,9 @@ class CustomMultiAuthenticator(MultiAuthenticator):
         Authenticators with a non-empty prefix are checked first so that
         a catch-all empty prefix (local accounts) never shadows others.
         """
-        from core.authenticators.saml import CustomSAMLAuthenticator
-
         fallback = None
         for authenticator in self._authenticators:
-            if isinstance(authenticator, CustomSAMLAuthenticator):
-                if user.name.startswith(SAML_USERNAME_PREFIX):
-                    return authenticator
-                continue
-            prefix = authenticator.username_prefix
+            prefix = self._identity_prefix(authenticator)
             if not prefix:
                 fallback = authenticator
                 continue
@@ -93,20 +83,27 @@ class CustomMultiAuthenticator(MultiAuthenticator):
             return True
         return await authenticator.refresh_user(user, handler)
 
-    def add_user(self, user):
-        from core.authenticators.github_app import GITHUB_USERNAME_PREFIX
+    def _delegate_lifecycle(self, user, method_name):
+        """Forward a lifecycle hook to the sub-authenticator owning *user*.
 
+        MultiAuthenticator does not delegate these by default, so a child that
+        overrides them (GitHub strips its prefix before touching allowed_users)
+        would otherwise never see its own users. Delegation is keyed on prefix
+        ownership rather than on a specific provider, so a child that gains an
+        override later is covered without another special case here.
+        """
         authenticator = self._find_authenticator_for_user(user)
-        if user.name.startswith(GITHUB_USERNAME_PREFIX) and authenticator is not None:
-            authenticator.add_user(user)
+        if authenticator is None or not self._identity_prefix(authenticator):
+            # Unprefixed local accounts are handled entirely by the wrapper.
+            return
+        getattr(authenticator, method_name)(user)
+
+    def add_user(self, user):
+        self._delegate_lifecycle(user, "add_user")
         return super().add_user(user)
 
     def delete_user(self, user):
-        from core.authenticators.github_app import GITHUB_USERNAME_PREFIX
-
-        authenticator = self._find_authenticator_for_user(user)
-        if user.name.startswith(GITHUB_USERNAME_PREFIX) and authenticator is not None:
-            authenticator.delete_user(user)
+        self._delegate_lifecycle(user, "delete_user")
         return super().delete_user(user)
 
     def get_custom_html(self, base_url: str) -> str:

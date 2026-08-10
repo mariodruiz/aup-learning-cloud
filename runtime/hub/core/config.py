@@ -326,17 +326,20 @@ class CanonicalAuthConfig(BaseModel):
 def _legacy_auth_capabilities(mode: str) -> AuthCapabilities:
     """Parse a one-release legacy authMode value into canonical capabilities."""
 
+    # Legacy authMode predates SAML, so no legacy value can enable it. The
+    # flag is spelled out rather than left to the field default to keep every
+    # construction site aligned with the five-provider contract.
     match mode:
         case "auto-login":
-            return AuthCapabilities(True, False, False, False)
+            return AuthCapabilities(True, False, False, False, False)
         case "dummy":
-            return AuthCapabilities(False, True, False, False)
+            return AuthCapabilities(False, True, False, False, False)
         case "github":
-            return AuthCapabilities(False, False, False, True)
+            return AuthCapabilities(False, False, False, True, False)
         case "local":
-            return AuthCapabilities(False, False, True, False)
+            return AuthCapabilities(False, False, True, False, False)
         case "multi":
-            return AuthCapabilities(False, False, True, True)
+            return AuthCapabilities(False, False, True, True, False)
         case _:
             raise AuthConfigurationError("authMode must be one of auto-login, dummy, github, local, or multi")
 
@@ -357,7 +360,7 @@ def _parse_auth_capabilities(raw_config: dict[str, Any]) -> tuple[AuthCapabiliti
     if legacy_present and raw_config["authMode"] is not None:
         legacy_mode = raw_config["authMode"]
         return _legacy_auth_capabilities(legacy_mode), legacy_mode
-    return AuthCapabilities(True, False, False, False), None
+    return AuthCapabilities(True, False, False, False, False), None
 
 
 # =============================================================================
@@ -381,7 +384,7 @@ class HubConfig:
 
     def __init__(self):
         # Runtime settings
-        self._auth: AuthCapabilities = AuthCapabilities(True, False, False, False)
+        self._auth: AuthCapabilities = AuthCapabilities(True, False, False, False, False)
         self.runtime_limit_enabled: bool = True
         self.github_org_name: str = ""
         self.cluster_name: str = ""

@@ -119,9 +119,9 @@ def setup_hub(c: Any) -> None:
     from core import z2jh
     from core.authenticators import (
         GITHUB_USERNAME_PREFIX,
+        SAML_USERNAME_PREFIX,
         configure_authenticator,
     )
-    from core.authenticators.saml import SAML_USERNAME_PREFIX
     from core.config import HubConfig
     from core.database import create_all_tables, init_database
     from core.handlers import configure_handlers, get_handlers
@@ -241,17 +241,21 @@ def setup_hub(c: Any) -> None:
                 assign_user_to_group(spawner.user, "saml-users", spawner.user.db)
 
                 if saml_group_attribute:
-                    saml_groups = auth_state.get("saml_attributes", {}).get(
-                        saml_group_attribute, []
-                    )
+                    saml_groups = auth_state.get("saml_attributes", {}).get(saml_group_attribute, [])
                     if saml_groups:
                         from core.groups import sync_saml_groups_for_user
 
                         sync_saml_groups_for_user(spawner.user, saml_groups, spawner.user.db)
             except Exception as e:
                 print(f"[GROUPS] Warning: Failed to assign SAML user group for {spawner.user.name}: {e}")
-        elif auth.native and not spawner.user.name.startswith(GITHUB_USERNAME_PREFIX):
-            # Native user with auth_state but no GitHub teams
+        elif (
+            auth.native
+            and not spawner.user.name.startswith(GITHUB_USERNAME_PREFIX)
+            and not spawner.user.name.startswith(SAML_USERNAME_PREFIX)
+        ):
+            # Native user with auth_state but no GitHub teams. Externally
+            # prefixed identities are excluded even when their provider is
+            # disabled, so a leftover SAML account is never treated as local.
             try:
                 from core.groups import assign_user_to_group
 
@@ -294,8 +298,6 @@ def setup_hub(c: Any) -> None:
     # in-place within the default_handlers list so that the native routes
     # point to our protected subclasses.
 
-    from core.groups import is_readonly_group as _is_readonly
-    from core.groups import is_undeletable_group as _is_undeletable
     from jupyterhub.apihandlers import default_handlers as _api_default_handlers
     from jupyterhub.apihandlers.groups import (
         GroupAPIHandler as _OrigGroupAPI,
@@ -304,6 +306,9 @@ def setup_hub(c: Any) -> None:
         GroupUsersAPIHandler as _OrigGroupUsersAPI,
     )
     from tornado import web
+
+    from core.groups import is_readonly_group as _is_readonly
+    from core.groups import is_undeletable_group as _is_undeletable
 
     class _ProtectedGroupAPIHandler(_OrigGroupAPI):
         def delete(self, group_name):

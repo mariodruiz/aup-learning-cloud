@@ -28,9 +28,10 @@ from __future__ import annotations
 
 import logging
 import time
+
 from jupyterhub.auth import Authenticator
 from jupyterhub.handlers import BaseHandler
-from jupyterhub.utils import url_path_join
+from jupyterhub.utils import maybe_future, url_path_join
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.idp_metadata_parser import OneLogin_Saml2_IdPMetadataParser
 from tornado import web
@@ -68,15 +69,19 @@ def _prepare_tornado_request(handler, *, force_https=False):
         "script_name": path,
         "path_info": "",
         "get_data": {k: handler.get_argument(k) for k in handler.request.arguments},
-        "post_data": {
-            k: v[-1].decode("utf-8", errors="replace")
-            for k, v in handler.request.body_arguments.items()
-        },
+        "post_data": {k: v[-1].decode("utf-8", errors="replace") for k, v in handler.request.body_arguments.items()},
     }
 
 
 class CustomSAMLAuthenticator(Authenticator):
     """SAML 2.0 SP-initiated SSO authenticator for JupyterHub."""
+
+    # Usernames are already prefixed in ``authenticate``. MultiAuthenticator
+    # derives its own prefix from ``login_service`` unless ``prefix`` is set,
+    # which would double-prefix (e.g. "amd sso:saml:user"); declare it empty
+    # and expose the prefix we own via ``identity_prefix`` instead.
+    prefix = ""
+    identity_prefix = SAML_USERNAME_PREFIX
 
     login_service = Unicode(
         "AMD SSO",
@@ -171,10 +176,7 @@ class CustomSAMLAuthenticator(Authenticator):
     @property
     def _force_https(self):
         """Infer HTTPS from explicitly configured SP URLs."""
-        for url in (self.sp_acs_url, self.sp_entity_id):
-            if url.startswith("https://"):
-                return True
-        return False
+        return any(url.startswith("https://") for url in (self.sp_acs_url, self.sp_entity_id))
 
     def _get_base_url(self, handler):
         """Derive the external base URL from request headers."""
@@ -392,13 +394,23 @@ class CustomSAMLAuthenticator(Authenticator):
                 if authenticated is None:
                     raise web.HTTPError(401, "SAML authentication failed: invalid username")
 
-                # Enforce blocked/allowed lists — mirrors what login_user() does internally
-                if not await authenticator.check_blocked_user(authenticated["name"]):
+                # Mirror Authenticator.get_authenticated_user: normalize, validate,
+                # then enforce block/allow policy. Both checks may be sync or async
+                # depending on the subclass, so route them through maybe_future.
+                user_name = authenticated["name"] = authenticator.normalize_username(authenticated["name"])
+                if not authenticator.validate_username(user_name):
+                    log.warning("Disallowing invalid SAML username %r", user_name)
+                    raise web.HTTPError(403, "SAML authentication failed: invalid username")
+
+                if not await maybe_future(authenticator.check_blocked_users(user_name, authenticated)):
+                    log.warning("SAML user %r is blocked", user_name)
                     raise web.HTTPError(403, "User is blocked")
-                if not await authenticator.check_allowed(authenticated["name"], authenticated):
+                if not authenticator.allow_all and not await maybe_future(
+                    authenticator.check_allowed(user_name, authenticated)
+                ):
+                    log.warning("SAML user %r is not allowed", user_name)
                     raise web.HTTPError(403, "User is not allowed")
 
-                user_name = authenticated["name"]
                 user = self.find_user(user_name)
                 if user is None:
                     user = self.user_from_username(user_name)

@@ -273,3 +273,33 @@ def test_resolve_resources_for_auto_login_user_uses_native_fallback():
     resources = resolve_resources_for_user(user, {"official": ["cpu"]})
 
     assert resources == ["cpu"]
+
+
+def test_resolve_resources_for_saml_user_prefers_saml_users_mapping():
+    user = DummyUser([], name="saml:learner")
+
+    resources = resolve_resources_for_user(
+        user,
+        {"official": ["cpu"], "native-users": ["code-cpu"], "saml-users": ["gpu"]},
+    )
+
+    assert resources == ["gpu"]
+
+
+def test_resolve_resources_for_saml_user_falls_back_through_native_to_official():
+    user = DummyUser([], name="saml:learner")
+
+    assert resolve_resources_for_user(user, {"official": ["cpu"], "native-users": ["code-cpu"]}) == ["code-cpu"]
+    assert resolve_resources_for_user(user, {"official": ["cpu"]}) == ["cpu"]
+
+
+def test_resolve_resources_for_saml_user_prefers_explicit_group_membership():
+    """Claim-synced groups outrank the saml-users default."""
+    user = DummyUser([DummyGroup("saml-staff", source="saml-group")], name="saml:learner")
+
+    resources = resolve_resources_for_user(
+        user,
+        {"saml-staff": ["gpu", "code-gpu"], "saml-users": ["cpu"]},
+    )
+
+    assert set(resources) == {"gpu", "code-gpu"}

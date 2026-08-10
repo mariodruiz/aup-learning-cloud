@@ -174,7 +174,13 @@ def test_absent_auth_forms_preserve_existing_auto_login_compatibility(tmp_path: 
 def test_canonical_auth_flags_normalize_to_capabilities_and_runtime_limit_default(tmp_path: Path, flags: ProviderFlags):
     hub_config = config.HubConfig.init(write_hub_config(tmp_path, canonical_auth_yaml(flags)))
 
-    assert (hub_config.auth.auto_login, hub_config.auth.dummy, hub_config.auth.native, hub_config.auth.github, hub_config.auth.saml) == flags
+    assert (
+        hub_config.auth.auto_login,
+        hub_config.auth.dummy,
+        hub_config.auth.native,
+        hub_config.auth.github,
+        hub_config.auth.saml,
+    ) == flags
     assert not hasattr(hub_config, "auth_mode")
     assert hub_config.runtime_limit_enabled is True
     assert hub_config.quota_enabled is True
@@ -232,8 +238,15 @@ def test_absent_auth_forms_use_compatibility_auto_login_with_neutral_defaults(tm
         hub_config = config.HubConfig.init(write_hub_config(tmp_path, "resources: {}\n"))
 
     assert not [warning for warning in caught if issubclass(warning.category, DeprecationWarning)]
-    assert (hub_config.auth.auto_login, hub_config.auth.dummy, hub_config.auth.native, hub_config.auth.github) == (
+    assert (
+        hub_config.auth.auto_login,
+        hub_config.auth.dummy,
+        hub_config.auth.native,
+        hub_config.auth.github,
+        hub_config.auth.saml,
+    ) == (
         True,
+        False,
         False,
         False,
         False,

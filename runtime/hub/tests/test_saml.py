@@ -19,6 +19,7 @@
 
 import asyncio
 import importlib.util
+import inspect
 import sys
 import types
 from pathlib import Path
@@ -44,7 +45,36 @@ if "jupyterhub" not in sys.modules:
 
 if "jupyterhub.auth" not in sys.modules:
     auth_module = types.ModuleType("jupyterhub.auth")
-    auth_module.Authenticator = type("Authenticator", (), {"login_service": ""})
+
+    class _StubAuthenticator:
+        """Mirrors the parts of jupyterhub.auth.Authenticator that SAML relies on.
+
+        Kept faithful to the real signatures (both policy checks are synchronous
+        on the base class) so tests exercise the same contract as production.
+        """
+
+        login_service = ""
+        allow_all = False
+        blocked_users = frozenset()
+        allowed_users = frozenset()
+
+        def normalize_username(self, username):
+            return username.lower()
+
+        def validate_username(self, username):
+            return bool(username) and "/" not in username
+
+        def check_blocked_users(self, username, authentication=None):
+            if not self.blocked_users:
+                return True
+            return username not in self.blocked_users
+
+        def check_allowed(self, username, authentication=None):
+            if self.allow_all:
+                return True
+            return username in self.allowed_users
+
+    auth_module.Authenticator = _StubAuthenticator
     sys.modules["jupyterhub.auth"] = auth_module
 
 if "jupyterhub.handlers" not in sys.modules:
@@ -55,14 +85,42 @@ if "jupyterhub.handlers" not in sys.modules:
 if "jupyterhub.utils" not in sys.modules:
     utils_module = types.ModuleType("jupyterhub.utils")
     utils_module.url_path_join = lambda *parts: "/".join(p.strip("/") for p in parts if p)
+
+    async def _maybe_future(obj):
+        """Mirror jupyterhub.utils.maybe_future: await awaitables, pass through values."""
+        if inspect.isawaitable(obj):
+            return await obj
+        return obj
+
+    utils_module.maybe_future = _maybe_future
     sys.modules["jupyterhub.utils"] = utils_module
 
 if "tornado" not in sys.modules:
-    sys.modules["tornado"] = types.ModuleType("tornado")
+    # Prefer the real package when it is installed; sibling test modules import
+    # tornado.escape, which a bare stub would shadow. Fall back to a stub marked
+    # as a namespace package so those imports still resolve if it is absent.
+    if importlib.util.find_spec("tornado") is not None:
+        import tornado  # noqa: F401
+    else:
+        tornado_module = types.ModuleType("tornado")
+        tornado_module.__path__ = []
+        sys.modules["tornado"] = tornado_module
 
-if "tornado.web" not in sys.modules:
+# Unlike the stubs above, tornado.web is installed unconditionally. Sibling test
+# modules register a bare HTTPError stub that discards its status code, so
+# honouring an existing registration would make these assertions depend on
+# collection order. Both this stub and real Tornado expose ``status_code``.
+if not hasattr(sys.modules.get("tornado.web"), "HTTPError") or not hasattr(
+    getattr(sys.modules.get("tornado.web"), "HTTPError", None), "status_code"
+):
+
+    def _http_error_init(self, code, msg="", *args, **kwargs):
+        Exception.__init__(self, f"HTTP {code}: {msg}")
+        self.status_code = code
+        self.log_message = msg
+
     web_module = types.ModuleType("tornado.web")
-    web_module.HTTPError = type("HTTPError", (Exception,), {"__init__": lambda self, code, msg="": None})
+    web_module.HTTPError = type("HTTPError", (Exception,), {"__init__": _http_error_init, "status_code": None})
     sys.modules["tornado.web"] = web_module
 
 if "onelogin" not in sys.modules:
@@ -110,8 +168,15 @@ _prepare_tornado_request = saml_module._prepare_tornado_request
 
 
 class DummyRequest:
-    def __init__(self, host="hub.example.com", protocol="https", path="/hub/login",
-                 headers=None, arguments=None, body_arguments=None):
+    def __init__(
+        self,
+        host="hub.example.com",
+        protocol="https",
+        path="/hub/login",
+        headers=None,
+        arguments=None,
+        body_arguments=None,
+    ):
         self.host = host
         self.protocol = protocol
         self.path = path
@@ -218,11 +283,16 @@ def test_authenticate_rejects_colon_in_username():
 
 def test_authenticate_normalizes_username():
     auth = _make_auth()
-    result = asyncio.run(auth.authenticate(None, data={
-        "username": "  Alice@Example.COM  ",
-        "saml_attributes": {"email": ["alice@example.com"]},
-        "session_index": "idx-123",
-    }))
+    result = asyncio.run(
+        auth.authenticate(
+            None,
+            data={
+                "username": "  Alice@Example.COM  ",
+                "saml_attributes": {"email": ["alice@example.com"]},
+                "session_index": "idx-123",
+            },
+        )
+    )
 
     assert result is not None
     assert result["name"] == "saml:alice@example.com"
@@ -414,6 +484,7 @@ def test_build_saml_settings_fetches_idp_metadata_once(monkeypatch):
     saml_module._idp_metadata_cache.clear()
 
     call_count = 0
+
     def mock_parse_remote(url):
         nonlocal call_count
         call_count += 1
@@ -446,6 +517,7 @@ def test_idp_metadata_refetched_after_ttl(monkeypatch):
     saml_module._idp_metadata_cache.clear()
 
     call_count = 0
+
     def mock_parse_remote(url):
         nonlocal call_count
         call_count += 1
@@ -479,6 +551,7 @@ def test_idp_metadata_falls_back_to_stale_on_refresh_failure(monkeypatch):
     saml_module._idp_metadata_cache.clear()
 
     state = {"calls": 0}
+
     def mock_parse_remote(url):
         state["calls"] += 1
         if state["calls"] == 1:
@@ -531,3 +604,233 @@ def test_idp_metadata_cached_per_url(monkeypatch):
     assert result_b["idp"]["entityId"] == "https://b.example.com/metadata"
 
     saml_module._idp_metadata_cache.clear()
+
+
+# ---------------------------------------------------------------------------
+# Tests: ACS handler authentication flow
+#
+# These drive SAMLACSHandler.post end-to-end against a stubbed
+# OneLogin_Saml2_Auth. The settings-construction tests above never enter this
+# path, which is where the authentication contract with JupyterHub lives.
+# ---------------------------------------------------------------------------
+
+
+class FakeSamlAuth:
+    """Stand-in for OneLogin_Saml2_Auth with a successful assertion."""
+
+    def __init__(self, nameid="alice@example.com", attributes=None, errors=None):
+        self._nameid = nameid
+        self._attributes = attributes or {}
+        self._errors = errors or []
+
+    def process_response(self):
+        return None
+
+    def get_errors(self):
+        return self._errors
+
+    def get_last_error_reason(self):
+        return "stubbed failure"
+
+    def is_authenticated(self):
+        return not self._errors
+
+    def get_nameid(self):
+        return self._nameid
+
+    def get_attributes(self):
+        return self._attributes
+
+    def get_session_index(self):
+        return "session-index-1"
+
+
+class RecordingACSHandler:
+    """Captures the side effects the ACS handler performs on success."""
+
+    def __init__(self, request=None, hub=None, relay_state=""):
+        self.request = request or DummyRequest(path="/hub/saml/acs")
+        self.hub = hub or DummyHub()
+        self.relay_state = relay_state
+        self.saved_auth_state = None
+        self.logged_in_user = None
+        self.redirected_to = None
+        self.created_usernames = []
+
+    def get_argument(self, name, default=None):
+        if name == "RelayState":
+            return self.relay_state or default
+        return default
+
+    def find_user(self, name):
+        return None
+
+    def user_from_username(self, name):
+        self.created_usernames.append(name)
+        return self
+
+    async def save_auth_state(self, auth_state):
+        self.saved_auth_state = auth_state
+
+    def set_login_cookie(self, user):
+        self.logged_in_user = user
+
+    def redirect(self, url):
+        self.redirected_to = url
+
+    def _validate_next_url(self, url):
+        # Mirror JupyterHub: reject cross-origin targets.
+        return "" if "://" in url else url
+
+    @property
+    def name(self):
+        return self.created_usernames[-1] if self.created_usernames else None
+
+
+def _acs_handler_class(authenticator):
+    handlers = dict(authenticator.get_handlers(app=None))
+    return handlers["/acs"]
+
+
+def _status_of(error):
+    """Return the HTTP status an HTTPError carries."""
+    return error.status_code
+
+
+def _run_acs(authenticator, handler, fake_auth, monkeypatch):
+    monkeypatch.setattr(saml_module, "OneLogin_Saml2_Auth", lambda req, settings: fake_auth)
+    acs_class = _acs_handler_class(authenticator)
+    post = acs_class.post
+    return asyncio.run(post(handler))
+
+
+def test_acs_authenticates_and_logs_in_user(monkeypatch):
+    """The success path must complete without raising and set a login cookie.
+
+    Regression: the handler previously called check_blocked_user (singular),
+    which does not exist on jupyterhub.auth.Authenticator, so every successful
+    assertion raised AttributeError -> HTTP 500.
+    """
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    auth.allow_all = True
+    handler = RecordingACSHandler()
+
+    _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
+
+    assert handler.created_usernames == ["saml:alice@example.com"]
+    assert handler.logged_in_user is handler
+    assert handler.redirected_to == "hub/home"
+
+
+def test_acs_persists_auth_state_with_saml_attributes(monkeypatch):
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    auth.allow_all = True
+    handler = RecordingACSHandler()
+    attributes = {"groups": ["staff", "research"]}
+
+    _run_acs(auth, handler, FakeSamlAuth(attributes=attributes), monkeypatch)
+
+    assert handler.saved_auth_state == {
+        "saml_attributes": attributes,
+        "session_index": "session-index-1",
+    }
+
+
+def test_acs_rejects_blocked_user(monkeypatch):
+    """check_blocked_users is synchronous on the base class; it must still be honoured."""
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    auth.allow_all = True
+    auth.blocked_users = {"saml:alice@example.com"}
+    handler = RecordingACSHandler()
+
+    try:
+        _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
+    except saml_module.web.HTTPError as error:
+        assert _status_of(error) == 403
+    else:
+        raise AssertionError("blocked user was not rejected")
+
+    assert handler.logged_in_user is None
+
+
+def test_acs_rejects_user_not_allowed(monkeypatch):
+    """With allow_all off and no allow rules, the assertion must not grant access."""
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    auth.allow_all = False
+    handler = RecordingACSHandler()
+
+    try:
+        _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
+    except saml_module.web.HTTPError as error:
+        assert _status_of(error) == 403
+    else:
+        raise AssertionError("disallowed user was not rejected")
+
+    assert handler.logged_in_user is None
+
+
+def test_acs_rejects_failed_assertion(monkeypatch):
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    auth.allow_all = True
+    handler = RecordingACSHandler()
+
+    try:
+        _run_acs(auth, handler, FakeSamlAuth(errors=["invalid_response"]), monkeypatch)
+    except saml_module.web.HTTPError as error:
+        assert _status_of(error) == 401
+    else:
+        raise AssertionError("invalid assertion was accepted")
+
+    assert handler.logged_in_user is None
+
+
+def test_acs_rejects_username_containing_prefix_separator(monkeypatch):
+    """A NameID with ':' could forge another provider's identity."""
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    auth.allow_all = True
+    handler = RecordingACSHandler()
+
+    try:
+        _run_acs(auth, handler, FakeSamlAuth(nameid="github:victim"), monkeypatch)
+    except saml_module.web.HTTPError as error:
+        assert _status_of(error) == 401
+    else:
+        raise AssertionError("username containing ':' was accepted")
+
+    assert handler.logged_in_user is None
+
+
+def test_acs_uses_username_attribute_when_configured(monkeypatch):
+    auth = _make_auth(
+        idp_entity_id="idp",
+        idp_sso_url="https://idp/sso",
+        idp_x509_cert="cert",
+        username_attribute="uid",
+    )
+    auth.allow_all = True
+    handler = RecordingACSHandler()
+
+    _run_acs(auth, handler, FakeSamlAuth(attributes={"uid": ["bob@example.com"]}), monkeypatch)
+
+    assert handler.created_usernames == ["saml:bob@example.com"]
+
+
+def test_acs_honours_valid_relay_state(monkeypatch):
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    auth.allow_all = True
+    handler = RecordingACSHandler(relay_state="/hub/user/alice/lab")
+
+    _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
+
+    assert handler.redirected_to == "/hub/user/alice/lab"
+
+
+def test_acs_rejects_cross_origin_relay_state(monkeypatch):
+    """RelayState is attacker-controllable and must not redirect off-site."""
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    auth.allow_all = True
+    handler = RecordingACSHandler(relay_state="https://evil.example.com/steal")
+
+    _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
+
+    assert handler.redirected_to == "hub/home"

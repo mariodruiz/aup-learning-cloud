@@ -8,6 +8,11 @@ GITHUB_SETTINGS = {
     "hub.config.GitHubOAuthenticator.team_sync_ttl_seconds": 123,
 }
 
+SAML_SETTINGS = {
+    "hub.config.CustomSAMLAuthenticator.group_attribute": "groups",
+    "hub.config.CustomSAMLAuthenticator.login_service": "AMD SSO",
+}
+
 
 def make_config(auth: object) -> types.SimpleNamespace:
     return types.SimpleNamespace(

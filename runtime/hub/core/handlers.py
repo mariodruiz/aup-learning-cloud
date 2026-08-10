@@ -35,6 +35,13 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlencode, urlparse, urlunparse
 
+from jupyterhub.apihandlers import APIHandler
+from jupyterhub.handlers import BaseHandler
+from jupyterhub.scopes import needs_scope
+from multiauthenticator import MultiAuthenticator
+from pydantic import ValidationError
+from tornado import web
+
 from core.authenticators import GITHUB_USERNAME_PREFIX, CustomFirstUseAuthenticator
 from core.git_validation import validate_and_sanitize_repo_url
 from core.notifications import get_normalized_notifications
@@ -54,12 +61,6 @@ from core.stats_handlers import (
     StatsUsageHandler,
     StatsUserHandler,
 )
-from jupyterhub.apihandlers import APIHandler
-from jupyterhub.handlers import BaseHandler
-from jupyterhub.scopes import needs_scope
-from multiauthenticator import MultiAuthenticator
-from pydantic import ValidationError
-from tornado import web
 
 # =============================================================================
 # Module-level configuration (set via configure_handlers)
