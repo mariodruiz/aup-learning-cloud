@@ -43,9 +43,10 @@ def test_setup_projects_explicit_auth_template_capabilities(
     assert context == {
         "auth_auto_login": variant == "auto-login",
         "auth_dummy": variant == "dummy",
-        "auth_native": variant in {"native", "native-github"},
-        "auth_github": variant in {"github", "native-github"},
-        "password_management_enabled": variant in {"native", "native-github"},
+        "auth_native": variant in {"native", "native-github", "native-saml", "native-github-saml"},
+        "auth_github": variant in {"github", "native-github", "native-github-saml"},
+        "auth_saml": variant in {"saml", "native-saml", "native-github-saml"},
+        "password_management_enabled": variant in {"native", "native-github", "native-saml", "native-github-saml"},
         "hide_logout": variant == "auto-login",
     }
 
@@ -245,8 +246,8 @@ def test_page_controls_follow_capabilities(
     probe = probe_html(html)
 
     assert ("logout" in probe.ids) is (variant != "auto-login")
-    assert ("change-password" in probe.ids) is (variant in {"native", "native-github"})
-    assert ("auth/check-force-password-change" in html) is (variant in {"native", "native-github"})
+    assert ("change-password" in probe.ids) is (variant in {"native", "native-github", "native-saml", "native-github-saml"})
+    assert ("auth/check-force-password-change" in html) is (variant in {"native", "native-github", "native-saml", "native-github-saml"})
 
 
 @pytest.mark.parametrize(("variant", "providers"), VALID_VARIANTS.items())
@@ -297,7 +298,7 @@ def test_password_templates_render_controls_only_for_native_capability(
 
     probe = probe_html(template_environment().get_template(template_name).render(**context))
 
-    assert bool(probe.forms) is (variant in {"native", "native-github"})
+    assert bool(probe.forms) is (variant in {"native", "native-github", "native-saml", "native-github-saml"})
 
 
 def test_attribution_footer_is_after_all_template_blocks_and_renders() -> None:

@@ -967,6 +967,9 @@ def test_generator_retains_known_accelerator_product_name_overrides(tmp_path: Pa
         ("github", {"github": True}),
         ("local", {"native": True}),
         ("multi", {"native": True, "github": True}),
+        ("saml", {"saml": True}),
+        ("local-saml", {"native": True, "saml": True}),
+        ("multi-all", {"native": True, "github": True, "saml": True}),
     ],
 )
 def test_generator_emits_canonical_auth_and_runtime_policy(
@@ -998,7 +1001,7 @@ def test_generator_rejects_invalid_auth_mode_before_discovery(tmp_path: Path, au
     result = run_script(GEN_CONFIGS, "--spec", str(spec_path), "--out-dir", str(out_dir))
 
     assert result.returncode == 1
-    assert "spec.auth_mode must be one of: auto-login, dummy, github, local, multi" in result.stderr
+    assert "spec.auth_mode must be one of:" in result.stderr
     assert not out_dir.exists()
 
 

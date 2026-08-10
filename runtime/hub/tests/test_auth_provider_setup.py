@@ -28,7 +28,7 @@ _module = types.ModuleType
 @contextmanager
 def _loaded_setup(
     monkeypatch: pytest.MonkeyPatch,
-    providers: tuple[bool, bool, bool, bool],
+    providers: tuple[bool, bool, bool, bool, bool],
     *,
     fail_setup: bool = False,
 ) -> Iterator[types.SimpleNamespace]:
@@ -199,15 +199,17 @@ def _loaded_setup(
 @pytest.mark.parametrize(
     ("providers", "expected_groups"),
     [
-        ((True, False, False, False), {}),
-        ((False, True, False, False), {}),
-        ((False, False, True, False), {"native-users": []}),
-        ((False, False, False, True), {"github-users": []}),
-        ((False, False, True, True), {"native-users": [], "github-users": []}),
+        ((True, False, False, False, False), {}),
+        ((False, True, False, False, False), {}),
+        ((False, False, True, False, False), {"native-users": []}),
+        ((False, False, False, True, False), {"github-users": []}),
+        ((False, False, True, True, False), {"native-users": [], "github-users": []}),
+        ((False, False, False, False, True), {"saml-users": []}),
+        ((False, False, True, False, True), {"native-users": [], "saml-users": []}),
     ],
 )
 def test_setup_passes_typed_capabilities_and_creates_only_enabled_groups(
-    monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool], expected_groups: dict[str, list[object]]
+    monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool, bool], expected_groups: dict[str, list[object]]
 ) -> None:
     with _loaded_setup(monkeypatch, providers) as state:
         state.setup.setup_hub(state.c)
@@ -216,9 +218,9 @@ def test_setup_passes_typed_capabilities_and_creates_only_enabled_groups(
         assert state.c.JupyterHub.load_groups == expected_groups
 
 
-@pytest.mark.parametrize("providers", ((False, False, False, True), (False, False, True, True)))
+@pytest.mark.parametrize("providers", ((False, False, False, True, False), (False, False, True, True, False)))
 def test_setup_loads_github_settings_for_each_github_capability(
-    monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool]
+    monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool, bool]
 ) -> None:
     with _loaded_setup(monkeypatch, providers) as state:
         state.setup.setup_hub(state.c)
@@ -241,9 +243,9 @@ def test_setup_configures_consumers_without_effective_auth_mode(monkeypatch: pyt
         assert "auth_mode" not in state.handler_configs[0]
 
 
-@pytest.mark.parametrize("providers", ((False, False, False, True), (False, False, True, True)))
+@pytest.mark.parametrize("providers", ((False, False, False, True, False), (False, False, True, True, False)))
 def test_github_prefixed_users_sync_teams_for_each_github_capability(
-    monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool]
+    monkeypatch: pytest.MonkeyPatch, providers: tuple[bool, bool, bool, bool, bool]
 ) -> None:
     with _loaded_setup(monkeypatch, providers) as state:
         state.setup.setup_hub(state.c)
