@@ -42,20 +42,11 @@
 # ============================================================================
 
 custom:
-  # Authentication mode
-  # - auto-login: No credentials required, auto-login as 'student' (for single-node dev)
-  # - dummy: Accept any username/password (for testing)
-  # - github: GitHub App authentication
-  # - saml: SAML 2.0 SSO (e.g. Okta) only
-  # - multi: Backwards-compatible alias for multi-github
-  # - multi-github: GitHub OAuth + Local native accounts
-  # - multi-saml: SAML SSO + Local native accounts
-  # - multi-all: GitHub OAuth + SAML SSO + Local native accounts
-
-  authMode: "auto-login"
+  # Authentication: defaults to auto-login when neither custom.auth nor
+  # custom.authMode is provided. See chart/values.yaml for all options.
 
   # GitHub organization name for team-based resource access
-  # Required for github and multi auth modes.
+  # Required when custom.auth.github is enabled.
   # githubOrgName: "<YOUR-ORG-NAME>"
 
   # Cluster display name (optional). Appended to "AUP Learning Cloud" in the UI.
@@ -65,6 +56,8 @@ custom:
   # Auto-create admin user on first install
   adminUser:
     enabled: false
+    username: "admin"
+    existingSecret: ""
 
   # ============================================================================
   # Notifications
@@ -574,7 +567,7 @@ custom:
   # Quota Management
   # ============================================================================
   quota:
-    # Enable quota system (auto-disabled for auto-login/dummy modes if not set)
+    # Enable quota enforcement independently from the session runtime limit.
     enabled: null
     # CPU-only quota consumption rate
     cpuRate: 1
@@ -620,9 +613,6 @@ hub:
       # Always show Home page first, even when a server is already running.
       # Users can access their running server via the "My Server" button on Home.
       redirect_to_server: false
-
-    Authenticator:
-      allow_all: true
 
     # ---- GitHub App ----
     GitHubOAuthenticator:
@@ -711,14 +701,9 @@ monitoring:
     enabled: false
 
 singleuser:
-  # Security context for user pods to access GPU devices
-  # supplementalGroups grants container access to host's render group (GID 993)
-  # This allows non-root users to access /dev/kfd and /dev/dri devices
-  extraPodConfig:
-    securityContext:
-      fsGroup: 100
-      supplementalGroups:
-        - 993 # render group for ROCm GPU access
+  # Storage ownership only. AUPLC runtime does not inject GPU groups.
+  # amd.com/gpu requests allocate devices; host udev policy controls node modes.
+  fsGid: 100
 
   storage:
     dynamic:

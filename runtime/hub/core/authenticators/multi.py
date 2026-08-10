@@ -30,14 +30,11 @@ from multiauthenticator.multiauthenticator import PREFIX_SEPARATOR
 
 from core.authenticators.saml import SAML_USERNAME_PREFIX
 
-LOCAL_ACCOUNT_PREFIX = "LocalAccount"
-
 
 class CustomMultiAuthenticator(MultiAuthenticator):
     """
-    MultiAuthenticator with custom login page HTML and refresh_user support.
+    MultiAuthenticator with refresh_user support.
 
-    Provides a unified login page supporting multiple authentication methods.
     Delegates ``refresh_user`` to the sub-authenticator that owns the user.
     """
 
@@ -95,3 +92,22 @@ class CustomMultiAuthenticator(MultiAuthenticator):
         if authenticator is None:
             return True
         return await authenticator.refresh_user(user, handler)
+
+    def add_user(self, user):
+        from core.authenticators.github_app import GITHUB_USERNAME_PREFIX
+
+        authenticator = self._find_authenticator_for_user(user)
+        if user.name.startswith(GITHUB_USERNAME_PREFIX) and authenticator is not None:
+            authenticator.add_user(user)
+        return super().add_user(user)
+
+    def delete_user(self, user):
+        from core.authenticators.github_app import GITHUB_USERNAME_PREFIX
+
+        authenticator = self._find_authenticator_for_user(user)
+        if user.name.startswith(GITHUB_USERNAME_PREFIX) and authenticator is not None:
+            authenticator.delete_user(user)
+        return super().delete_user(user)
+
+    def get_custom_html(self, base_url: str) -> str:
+        return ""

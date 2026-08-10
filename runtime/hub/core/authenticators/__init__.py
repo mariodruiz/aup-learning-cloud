@@ -23,40 +23,82 @@ Authenticator Package
 Provides various authentication methods for JupyterHub.
 """
 
+from typing import Any
+
 from core.authenticators.auto_login import AutoLoginAuthenticator
 from core.authenticators.firstuse import CustomFirstUseAuthenticator
 from core.authenticators.github_app import GITHUB_USERNAME_PREFIX, CustomGitHubOAuthenticator
 from core.authenticators.jwt import RemoteLabAuthenticator
 from core.authenticators.multi import CustomMultiAuthenticator
 from core.authenticators.saml import CustomSAMLAuthenticator
+from core.config import AuthCapabilities, AuthConfigurationError
 
 LOCAL_ACCOUNT_PREFIX = "LocalAccount"
 
 
-def create_authenticator(auth_mode: str, **kwargs):
-    """
-    Factory function to create the appropriate authenticator.
+def configure_authenticator(c: Any, auth: AuthCapabilities) -> None:
+    """Configure the JupyterHub authenticator for validated capabilities."""
 
-    Args:
-        auth_mode: Authentication mode ("auto-login", "dummy", "github", "multi")
-        **kwargs: Additional configuration options
-
-    Returns:
-        Authenticator class (not instance)
-    """
-    if auth_mode == "auto-login":
-        return AutoLoginAuthenticator
-    elif auth_mode == "dummy":
-        return "dummy"
-    elif auth_mode == "github":
-        return CustomGitHubOAuthenticator
-    elif auth_mode == "saml":
-        return CustomSAMLAuthenticator
-    elif auth_mode in ("multi", "multi-github", "multi-saml", "multi-all"):
-        return CustomMultiAuthenticator
-    else:
-        print(f"[WARN] Unknown auth mode: {auth_mode}, falling back to dummy")
-        return "dummy"
+    match auth:
+        case AuthCapabilities(auto_login=True, dummy=False, native=False, github=False, saml=False):
+            c.JupyterHub.authenticator_class = AutoLoginAuthenticator
+            c.Authenticator.allow_all = True
+        case AuthCapabilities(auto_login=False, dummy=True, native=False, github=False, saml=False):
+            c.JupyterHub.authenticator_class = "dummy"
+            c.Authenticator.allow_all = True
+        case AuthCapabilities(auto_login=False, dummy=False, native=True, github=False, saml=False):
+            c.JupyterHub.authenticator_class = CustomFirstUseAuthenticator
+            c.Authenticator.allow_all = True
+        case AuthCapabilities(auto_login=False, dummy=False, native=False, github=True, saml=False):
+            c.JupyterHub.authenticator_class = CustomGitHubOAuthenticator
+            c.GitHubOAuthenticator.allow_all = False
+        case AuthCapabilities(auto_login=False, dummy=False, native=False, github=False, saml=True):
+            c.JupyterHub.authenticator_class = CustomSAMLAuthenticator
+            c.Authenticator.allow_all = True
+        case AuthCapabilities(auto_login=False, dummy=False, native=True, github=True, saml=False):
+            c.JupyterHub.authenticator_class = CustomMultiAuthenticator
+            c.GitHubOAuthenticator.allow_all = False
+            c.MultiAuthenticator.allow_all = True
+            c.MultiAuthenticator.authenticators = [
+                {"authenticator_class": CustomGitHubOAuthenticator, "url_prefix": "/github"},
+                {
+                    "authenticator_class": CustomFirstUseAuthenticator,
+                    "url_prefix": "/native",
+                    "config": {"prefix": "", "allow_all": True},
+                },
+            ]
+        case AuthCapabilities(auto_login=False, dummy=False, native=True, github=False, saml=True):
+            c.JupyterHub.authenticator_class = CustomMultiAuthenticator
+            c.MultiAuthenticator.allow_all = True
+            c.MultiAuthenticator.authenticators = [
+                {"authenticator_class": CustomSAMLAuthenticator, "url_prefix": "/saml"},
+                {
+                    "authenticator_class": CustomFirstUseAuthenticator,
+                    "url_prefix": "/native",
+                    "config": {"prefix": "", "allow_all": True},
+                },
+            ]
+        case AuthCapabilities(auto_login=False, dummy=False, native=True, github=True, saml=True):
+            c.JupyterHub.authenticator_class = CustomMultiAuthenticator
+            c.GitHubOAuthenticator.allow_all = False
+            c.MultiAuthenticator.allow_all = True
+            c.MultiAuthenticator.authenticators = [
+                {"authenticator_class": CustomGitHubOAuthenticator, "url_prefix": "/github"},
+                {"authenticator_class": CustomSAMLAuthenticator, "url_prefix": "/saml"},
+                {
+                    "authenticator_class": CustomFirstUseAuthenticator,
+                    "url_prefix": "/native",
+                    "config": {"prefix": "", "allow_all": True},
+                },
+            ]
+        case AuthCapabilities():
+            raise AuthConfigurationError(
+                "auth must enable one exclusive provider or a valid combination of native/github/saml"
+            )
+        case unsupported:
+            raise AuthConfigurationError(
+                f"authentication capabilities must be AuthCapabilities, got {type(unsupported).__name__}"
+            )
 
 
 __all__ = [
@@ -66,7 +108,7 @@ __all__ = [
     "CustomFirstUseAuthenticator",
     "CustomMultiAuthenticator",
     "CustomSAMLAuthenticator",
-    "create_authenticator",
+    "configure_authenticator",
     "LOCAL_ACCOUNT_PREFIX",
     "GITHUB_USERNAME_PREFIX",
 ]
