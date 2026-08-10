@@ -108,4 +108,5 @@ __all__ = [
     "CustomSAMLAuthenticator",
     "configure_authenticator",
     "GITHUB_USERNAME_PREFIX",
+    "SAML_USERNAME_PREFIX",
 ]

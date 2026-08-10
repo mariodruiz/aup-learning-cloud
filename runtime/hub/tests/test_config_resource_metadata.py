@@ -48,27 +48,33 @@ config = load_module("core.config", CORE / "config.py")
 ParsedConfig = config.ParsedConfig
 ResourceMetadata = config.ResourceMetadata
 
-ProviderFlags = tuple[bool, bool, bool, bool]
-AUTH_FLAG_NAMES = ("autoLogin", "dummy", "native", "github")
+ProviderFlags = tuple[bool, bool, bool, bool, bool]
+AUTH_FLAG_NAMES = ("autoLogin", "dummy", "native", "github", "saml")
 VALID_CANONICAL_AUTH = (
-    (True, False, False, False),
-    (False, True, False, False),
-    (False, False, True, False),
-    (False, False, False, True),
-    (False, False, True, True),
+    (True, False, False, False, False),
+    (False, True, False, False, False),
+    (False, False, True, False, False),
+    (False, False, False, True, False),
+    (False, False, True, True, False),
+    (False, False, False, False, True),
+    (False, False, True, False, True),
+    (False, False, True, True, True),
 )
 INVALID_CANONICAL_AUTH = (
-    (False, False, False, False),
-    (True, True, False, False),
-    (True, False, True, False),
-    (True, False, False, True),
-    (False, True, True, False),
-    (False, True, False, True),
-    (True, True, True, False),
-    (True, True, False, True),
-    (True, False, True, True),
-    (False, True, True, True),
-    (True, True, True, True),
+    (False, False, False, False, False),
+    (True, True, False, False, False),
+    (True, False, True, False, False),
+    (True, False, False, True, False),
+    (False, True, True, False, False),
+    (False, True, False, True, False),
+    (True, True, True, False, False),
+    (True, True, False, True, False),
+    (True, False, True, True, False),
+    (False, True, True, True, False),
+    (True, True, True, True, True),
+    (True, False, False, False, True),
+    (False, True, False, False, True),
+    (False, False, False, True, True),
 )
 
 
@@ -168,7 +174,7 @@ def test_absent_auth_forms_preserve_existing_auto_login_compatibility(tmp_path: 
 def test_canonical_auth_flags_normalize_to_capabilities_and_runtime_limit_default(tmp_path: Path, flags: ProviderFlags):
     hub_config = config.HubConfig.init(write_hub_config(tmp_path, canonical_auth_yaml(flags)))
 
-    assert (hub_config.auth.auto_login, hub_config.auth.dummy, hub_config.auth.native, hub_config.auth.github) == flags
+    assert (hub_config.auth.auto_login, hub_config.auth.dummy, hub_config.auth.native, hub_config.auth.github, hub_config.auth.saml) == flags
     assert not hasattr(hub_config, "auth_mode")
     assert hub_config.runtime_limit_enabled is True
     assert hub_config.quota_enabled is True
@@ -176,7 +182,7 @@ def test_canonical_auth_flags_normalize_to_capabilities_and_runtime_limit_defaul
 
 @pytest.mark.parametrize("flags", INVALID_CANONICAL_AUTH)
 def test_canonical_auth_rejects_each_invalid_boolean_combination(tmp_path: Path, flags: ProviderFlags):
-    assert_auth_configuration_rejected(tmp_path, canonical_auth_yaml(flags), "native + github")
+    assert_auth_configuration_rejected(tmp_path, canonical_auth_yaml(flags), "one exclusive provider")
 
 
 @pytest.mark.parametrize(

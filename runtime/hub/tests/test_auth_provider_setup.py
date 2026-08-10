@@ -229,14 +229,14 @@ def test_setup_loads_github_settings_for_each_github_capability(
 
 
 def test_native_only_setup_never_reads_github_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-    with _loaded_setup(monkeypatch, (False, False, True, False)) as state:
+    with _loaded_setup(monkeypatch, (False, False, True, False, False)) as state:
         state.setup.setup_hub(state.c)
 
         assert not any(key.startswith("hub.config.GitHubOAuthenticator") for key in state.settings_reads)
 
 
 def test_setup_configures_consumers_without_effective_auth_mode(monkeypatch: pytest.MonkeyPatch) -> None:
-    with _loaded_setup(monkeypatch, (False, False, False, True)) as state:
+    with _loaded_setup(monkeypatch, (False, False, False, True, False)) as state:
         state.setup.setup_hub(state.c)
 
         assert state.spawner_configs == [state.config]
@@ -262,7 +262,7 @@ def test_github_prefixed_users_sync_teams_for_each_github_capability(
 def test_github_only_auth_result_syncs_teams_with_the_prefixed_local_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with _loaded_setup(monkeypatch, (False, False, False, True)) as state:
+    with _loaded_setup(monkeypatch, (False, False, False, True, False)) as state:
         state.setup.setup_hub(state.c)
         with loaded_authenticators(monkeypatch) as modules:
             authenticator = modules.github.CustomGitHubOAuthenticator()
@@ -279,7 +279,7 @@ def test_github_only_auth_result_syncs_teams_with_the_prefixed_local_identity(
 
 
 def test_native_user_retains_native_group_without_github_sync(monkeypatch: pytest.MonkeyPatch) -> None:
-    with _loaded_setup(monkeypatch, (False, False, True, True)) as state:
+    with _loaded_setup(monkeypatch, (False, False, True, True, False)) as state:
         state.setup.setup_hub(state.c)
         native_user = types.SimpleNamespace(name="learner", db=object())
         spawner = types.SimpleNamespace(user=native_user)
@@ -292,7 +292,7 @@ def test_native_user_retains_native_group_without_github_sync(monkeypatch: pytes
 
 
 def test_github_only_preserves_direct_callback_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    with _loaded_setup(monkeypatch, (False, False, False, True)) as state:
+    with _loaded_setup(monkeypatch, (False, False, False, True, False)) as state:
         state.setup.setup_hub(state.c)
 
         assert state.c.JupyterHub.authenticator_class is state.authenticator_types["github"]
@@ -303,7 +303,7 @@ def test_github_only_preserves_direct_callback_path(monkeypatch: pytest.MonkeyPa
 def test_composed_auth_preserves_prefixed_github_and_unprefixed_native_callbacks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with _loaded_setup(monkeypatch, (False, False, True, True)) as state:
+    with _loaded_setup(monkeypatch, (False, False, True, True, False)) as state:
         state.setup.setup_hub(state.c)
 
         assert state.c.JupyterHub.authenticator_class is state.authenticator_types["multi"]
@@ -325,7 +325,7 @@ def test_setup_module_cleanup_survives_a_forced_setup_failure(monkeypatch: pytes
 
     with (
         pytest.raises(RuntimeError, match="forced setup failure"),
-        _loaded_setup(monkeypatch, (False, False, False, True), fail_setup=True) as state,
+        _loaded_setup(monkeypatch, (False, False, False, True, False), fail_setup=True) as state,
     ):
         state.setup.setup_hub(state.c)
 

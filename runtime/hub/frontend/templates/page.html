@@ -377,7 +377,7 @@ SOFTWARE.
                       {% if user %}
                         <span class="me-1">{{ user.name }}</span>
                         {% if not hide_logout %}
-                          {% if password_management_enabled and not user.name.startswith('github:') %}
+                          {% if password_management_enabled and not (user.name.startswith('github:') or user.name.startswith('saml:')) %}
                           <a id="change-password"
                              role="button"
                              class="btn btn-sm btn-outline-secondary me-1"
@@ -548,7 +548,7 @@ SOFTWARE.
         });
       })();
     </script>
-    {% if user and password_management_enabled and not user.name.startswith('github:') %}
+    {% if user and password_management_enabled and not (user.name.startswith('github:') or user.name.startswith('saml:')) %}
     <script type="text/javascript">
       // Check if user needs to change password (only for native users)
       (function() {

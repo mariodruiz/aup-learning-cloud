@@ -47,7 +47,10 @@ def _loaded_factory(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[types.Mod
         jwt.RemoteLabAuthenticator = type("RemoteLabAuthenticator", (), {})
         multi = types.ModuleType("core.authenticators.multi")
         multi.CustomMultiAuthenticator = type("CustomMultiAuthenticator", (), {})
-        for fake_module in (auto_login, firstuse, github_app, jwt, multi):
+        saml = types.ModuleType("core.authenticators.saml")
+        saml.CustomSAMLAuthenticator = type("CustomSAMLAuthenticator", (), {})
+        saml.SAML_USERNAME_PREFIX = "saml:"
+        for fake_module in (auto_login, firstuse, github_app, jwt, multi, saml):
             module_patch.setitem(sys.modules, fake_module.__name__, fake_module)
 
         spec = importlib.util.spec_from_file_location("core.authenticators", AUTHENTICATORS)
@@ -70,20 +73,26 @@ def test_factory_preserves_identity_prefix_contract(monkeypatch: pytest.MonkeyPa
 @pytest.mark.parametrize(
     ("capabilities", "expected_name", "expected_allow_all"),
     [
-        ((True, False, False, False), "AutoLoginAuthenticator", (("Authenticator", True),)),
-        ((False, True, False, False), "dummy", (("Authenticator", True),)),
-        ((False, False, True, False), "CustomFirstUseAuthenticator", (("Authenticator", True),)),
-        ((False, False, False, True), "CustomGitHubOAuthenticator", (("GitHubOAuthenticator", False),)),
+        ((True, False, False, False, False), "AutoLoginAuthenticator", (("Authenticator", True),)),
+        ((False, True, False, False, False), "dummy", (("Authenticator", True),)),
+        ((False, False, True, False, False), "CustomFirstUseAuthenticator", (("Authenticator", True),)),
+        ((False, False, False, True, False), "CustomGitHubOAuthenticator", (("GitHubOAuthenticator", False),)),
+        ((False, False, False, False, True), "CustomSAMLAuthenticator", (("Authenticator", True),)),
         (
-            (False, False, True, True),
+            (False, False, True, True, False),
             "CustomMultiAuthenticator",
             (("GitHubOAuthenticator", False), ("MultiAuthenticator", True)),
+        ),
+        (
+            (False, False, True, False, True),
+            "CustomMultiAuthenticator",
+            (("MultiAuthenticator", True),),
         ),
     ],
 )
 def test_factory_configures_authenticator_for_canonical_capabilities(
     monkeypatch: pytest.MonkeyPatch,
-    capabilities: tuple[bool, bool, bool, bool],
+    capabilities: tuple[bool, bool, bool, bool, bool],
     expected_name: str,
     expected_allow_all: tuple[tuple[str, bool], ...],
 ) -> None:
@@ -100,7 +109,7 @@ def test_factory_configures_authenticator_for_canonical_capabilities(
         assert selected == "dummy" if expected_name == "dummy" else selected.__name__ == expected_name
         for authenticator_name, allow_all in expected_allow_all:
             assert getattr(c, authenticator_name).allow_all is allow_all
-        if capabilities == (False, False, True, True):
+        if capabilities == (False, False, True, True, False):
             assert c.MultiAuthenticator.authenticators == [
                 {"authenticator_class": factory.CustomGitHubOAuthenticator, "url_prefix": "/github"},
                 {
@@ -121,7 +130,7 @@ def test_factory_keeps_multi_github_allow_all_available_for_later_operator_overr
             GitHubOAuthenticator=types.SimpleNamespace(),
             MultiAuthenticator=types.SimpleNamespace(),
         )
-        factory.configure_authenticator(c, config.AuthCapabilities(False, False, True, True))
+        factory.configure_authenticator(c, config.AuthCapabilities(False, False, True, True, False))
 
         c.GitHubOAuthenticator.allow_all = True
 
@@ -142,7 +151,7 @@ def test_factory_multi_github_child_enforces_org_policy_until_class_override(
             GitHubOAuthenticator=types.SimpleNamespace(),
             MultiAuthenticator=types.SimpleNamespace(),
         )
-        factory.configure_authenticator(c, config.AuthCapabilities(False, False, True, True))
+        factory.configure_authenticator(c, config.AuthCapabilities(False, False, True, True, False))
         github_child = c.MultiAuthenticator.authenticators[0]
         authenticator = modules.github.CustomGitHubOAuthenticator()
         authenticator.allow_all = c.GitHubOAuthenticator.allow_all
@@ -165,14 +174,15 @@ def test_factory_multi_github_child_enforces_org_policy_until_class_override(
 @pytest.mark.parametrize(
     "capabilities",
     [
-        (False, False, False, False),
-        (True, False, True, False),
-        (False, True, False, True),
-        (True, True, False, False),
+        (False, False, False, False, False),
+        (True, False, True, False, False),
+        (False, True, False, True, False),
+        (True, True, False, False, False),
+        (True, False, False, False, True),
     ],
 )
 def test_factory_rejects_invalid_capabilities_before_authenticator_construction(
-    monkeypatch: pytest.MonkeyPatch, capabilities: tuple[bool, bool, bool, bool]
+    monkeypatch: pytest.MonkeyPatch, capabilities: tuple[bool, bool, bool, bool, bool]
 ) -> None:
     with _loaded_factory(monkeypatch) as (factory, config), pytest.raises(config.AuthConfigurationError):
         factory.configure_authenticator(types.SimpleNamespace(), config.AuthCapabilities(*capabilities))
