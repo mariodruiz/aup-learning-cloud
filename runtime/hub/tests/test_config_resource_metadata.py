@@ -194,11 +194,11 @@ def test_canonical_auth_rejects_each_invalid_boolean_combination(tmp_path: Path,
 @pytest.mark.parametrize(
     ("legacy_mode", "expected_flags", "expected_runtime_limit", "expected_quota"),
     [
-        ("auto-login", (True, False, False, False), False, False),
-        ("dummy", (False, True, False, False), True, False),
-        ("github", (False, False, False, True), True, True),
-        ("local", (False, False, True, False), False, False),
-        ("multi", (False, False, True, True), True, True),
+        ("auto-login", (True, False, False, False, False), False, False),
+        ("dummy", (False, True, False, False, False), True, False),
+        ("github", (False, False, False, True, False), True, True),
+        ("local", (False, False, True, False, False), False, False),
+        ("multi", (False, False, True, True, False), True, True),
     ],
 )
 def test_explicit_legacy_modes_map_to_capabilities_and_preserve_policy_defaults(
@@ -213,6 +213,7 @@ def test_explicit_legacy_modes_map_to_capabilities_and_preserve_policy_defaults(
         hub_config.auth.dummy,
         hub_config.auth.native,
         hub_config.auth.github,
+        hub_config.auth.saml,
     ) == expected_flags
     assert not hasattr(hub_config, "auth_mode")
     assert hub_config.runtime_limit_enabled is expected_runtime_limit

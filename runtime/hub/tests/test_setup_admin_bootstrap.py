@@ -3,7 +3,7 @@ from test_auth_provider_setup import _loaded_setup
 
 
 def test_native_setup_does_not_require_optional_admin_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
-    with _loaded_setup(monkeypatch, (False, False, True, False)) as state:
+    with _loaded_setup(monkeypatch, (False, False, True, False, False)) as state:
         monkeypatch.delenv("JUPYTERHUB_ADMIN_PASSWORD", raising=False)
         monkeypatch.delenv("JUPYTERHUB_ADMIN_USERNAME", raising=False)
 
@@ -13,7 +13,7 @@ def test_native_setup_does_not_require_optional_admin_bootstrap(monkeypatch: pyt
 
 
 def test_enabled_bootstrap_failure_aborts_before_administrator_registration(monkeypatch: pytest.MonkeyPatch) -> None:
-    with _loaded_setup(monkeypatch, (False, False, True, False)) as state:
+    with _loaded_setup(monkeypatch, (False, False, True, False, False)) as state:
 
         def fail_bootstrap(_username: str, _password: str) -> None:
             raise OSError("database unavailable")
@@ -30,7 +30,7 @@ def test_enabled_bootstrap_failure_aborts_before_administrator_registration(monk
 def test_github_only_rejects_stale_password_before_bootstrap_or_token_configuration(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    with _loaded_setup(monkeypatch, (False, False, False, True)) as state:
+    with _loaded_setup(monkeypatch, (False, False, False, True, False)) as state:
         calls: list[tuple[str, str]] = []
         monkeypatch.setenv("JUPYTERHUB_ADMIN_PASSWORD", "Password1!")
         monkeypatch.setenv("JUPYTERHUB_ADMIN_USERNAME", "operator")
@@ -49,7 +49,7 @@ def test_github_only_rejects_stale_password_before_bootstrap_or_token_configurat
 
 
 def test_token_only_remains_available_without_native_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
-    with _loaded_setup(monkeypatch, (False, False, False, True)) as state:
+    with _loaded_setup(monkeypatch, (False, False, False, True, False)) as state:
         monkeypatch.setenv("JUPYTERHUB_API_TOKEN", "token-value")
 
         state.setup.setup_hub(state.c)
@@ -61,7 +61,7 @@ def test_token_only_remains_available_without_native_bootstrap(monkeypatch: pyte
 def test_bootstrap_failure_preserves_existing_token_and_admin_state(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    with _loaded_setup(monkeypatch, (False, False, True, False)) as state:
+    with _loaded_setup(monkeypatch, (False, False, True, False, False)) as state:
         state.c.JupyterHub.api_tokens = {"existing-token": "existing-admin"}
         state.c.Authenticator.admin_users = {"existing-admin"}
         monkeypatch.setenv("JUPYTERHUB_API_TOKEN", "token-value")
@@ -84,7 +84,7 @@ def test_bootstrap_failure_preserves_existing_token_and_admin_state(
 def test_token_failure_follows_successful_bootstrap_without_final_admin_state(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    with _loaded_setup(monkeypatch, (False, False, True, False)) as state:
+    with _loaded_setup(monkeypatch, (False, False, True, False, False)) as state:
         calls: list[tuple[str, str]] = []
         monkeypatch.setenv("JUPYTERHUB_API_TOKEN", "token-value")
         state.setup._bootstrap_admin_password = lambda username, password: calls.append((username, password))

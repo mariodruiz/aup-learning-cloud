@@ -113,6 +113,9 @@ def test_login_renders_enabled_authentication_controls(
         variant in {"native-github", "native-github-saml"}
     )
     assert ("/hub/native/login?next=/hub/home" in form_actions) is (variant in PREFIXED_NATIVE_FORM_VARIANTS)
+    assert ("/hub/saml/login?next=/hub/home" in probe.hrefs) is (
+        variant in {"saml", "native-saml", "native-github-saml"}
+    )
     assert "auplc-powered-by-footer" in probe.ids
     if variant in PASSWORD_FORM_VARIANTS:
         assert any(field.get("name") == "_xsrf" and field.get("value") == "csrf-token" for field in probe.inputs)

@@ -88,6 +88,11 @@ def test_factory_preserves_identity_prefix_contract(monkeypatch: pytest.MonkeyPa
             "CustomMultiAuthenticator",
             (("MultiAuthenticator", True),),
         ),
+        (
+            (False, False, True, True, True),
+            "CustomMultiAuthenticator",
+            (("GitHubOAuthenticator", False), ("MultiAuthenticator", True)),
+        ),
     ],
 )
 def test_factory_configures_authenticator_for_canonical_capabilities(
@@ -112,6 +117,20 @@ def test_factory_configures_authenticator_for_canonical_capabilities(
         if capabilities == (False, False, True, True, False):
             assert c.MultiAuthenticator.authenticators == [
                 {"authenticator_class": factory.CustomGitHubOAuthenticator, "url_prefix": "/github"},
+                {
+                    "authenticator_class": factory.CustomFirstUseAuthenticator,
+                    "url_prefix": "/native",
+                    "config": {"prefix": "", "allow_all": True},
+                },
+            ]
+        if capabilities == (False, False, True, True, True):
+            assert c.MultiAuthenticator.authenticators == [
+                {"authenticator_class": factory.CustomGitHubOAuthenticator, "url_prefix": "/github"},
+                {
+                    "authenticator_class": factory.CustomSAMLAuthenticator,
+                    "url_prefix": "/saml",
+                    "config": {"allow_all": True},
+                },
                 {
                     "authenticator_class": factory.CustomFirstUseAuthenticator,
                     "url_prefix": "/native",
@@ -242,6 +261,7 @@ def test_factory_module_cleanup_survives_a_forced_test_failure(monkeypatch: pyte
         "core.authenticators.github_app",
         "core.authenticators.jwt",
         "core.authenticators.multi",
+        "core.authenticators.saml",
     )
     missing = object()
     original_modules = {name: sys.modules.get(name, missing) for name in module_names}
