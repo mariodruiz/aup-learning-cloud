@@ -297,8 +297,12 @@ def setup_hub(c: Any) -> None:
     from core.groups import is_readonly_group as _is_readonly
     from core.groups import is_undeletable_group as _is_undeletable
     from jupyterhub.apihandlers import default_handlers as _api_default_handlers
-    from jupyterhub.apihandlers.groups import GroupAPIHandler as _OrigGroupAPI
-    from jupyterhub.apihandlers.groups import GroupUsersAPIHandler as _OrigGroupUsersAPI
+    from jupyterhub.apihandlers.groups import (
+        GroupAPIHandler as _OrigGroupAPI,
+    )
+    from jupyterhub.apihandlers.groups import (
+        GroupUsersAPIHandler as _OrigGroupUsersAPI,
+    )
     from tornado import web
 
     class _ProtectedGroupAPIHandler(_OrigGroupAPI):

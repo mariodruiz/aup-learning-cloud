@@ -38,9 +38,22 @@ from urllib.parse import urlencode, urlparse, urlunparse
 from core.authenticators import GITHUB_USERNAME_PREFIX, CustomFirstUseAuthenticator
 from core.git_validation import validate_and_sanitize_repo_url
 from core.notifications import get_normalized_notifications
-from core.quota import BatchQuotaRequest, QuotaAction, QuotaModifyRequest, QuotaRefreshRequest, get_quota_manager
-from core.stats_handlers import (StatsActiveSSEHandler, StatsDistributionHandler, StatsHourlyHandler,
-                                 StatsMyUsageHandler, StatsOverviewHandler, StatsUsageHandler, StatsUserHandler)
+from core.quota import (
+    BatchQuotaRequest,
+    QuotaAction,
+    QuotaModifyRequest,
+    QuotaRefreshRequest,
+    get_quota_manager,
+)
+from core.stats_handlers import (
+    StatsActiveSSEHandler,
+    StatsDistributionHandler,
+    StatsHourlyHandler,
+    StatsMyUsageHandler,
+    StatsOverviewHandler,
+    StatsUsageHandler,
+    StatsUserHandler,
+)
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.handlers import BaseHandler
 from jupyterhub.scopes import needs_scope
