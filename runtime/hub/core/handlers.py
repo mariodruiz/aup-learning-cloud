@@ -68,9 +68,7 @@ _EXTERNAL_USER_PREFIXES = ("github:", "saml:")
 
 
 def _is_external_user(username: str) -> bool:
-    if username.startswith(_EXTERNAL_USER_PREFIXES):
-        return True
-    return _handler_config.get("auth_mode") == "saml"
+    return username.startswith(_EXTERNAL_USER_PREFIXES)
 
 
 def _serialize_dismissed_at(value: datetime | None) -> str | None:
