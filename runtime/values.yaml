@@ -632,7 +632,7 @@ hub:
       scope: []
 
     # ---- SAML 2.0 SSO ----
-    # Used when authMode is "saml", "multi-saml", or "multi-all".
+    # Used when auth.saml is enabled.
     #
     # Option A — IdP metadata URL (recommended; auto-fetches entity ID,
     #            SSO URL, and signing certificate):
