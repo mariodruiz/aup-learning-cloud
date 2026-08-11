@@ -18,15 +18,48 @@
 // SOFTWARE.
 
 const GITHUB_PREFIX = "github:";
+const SAML_PREFIX = "saml:";
+
+/**
+ * Username prefixes owned by an external identity provider.
+ *
+ * Mirrors `_EXTERNAL_USER_PREFIXES` in `runtime/hub/core/handlers.py`. Keep the
+ * two in step: the Hub rejects native password operations for every prefix
+ * listed there, so a prefix missing here makes the UI offer actions the
+ * backend will refuse.
+ */
+const EXTERNAL_PREFIXES = [GITHUB_PREFIX, SAML_PREFIX] as const;
 
 export function isGitHubUser(username: string): boolean {
   return username.startsWith(GITHUB_PREFIX);
+}
+
+export function isSamlUser(username: string): boolean {
+  return username.startsWith(SAML_PREFIX);
 }
 
 export function isCurrentUserGitHub(): boolean {
   return isGitHubUser(window.jhdata?.user ?? "");
 }
 
+/** True when the account is managed by an external IdP rather than the Hub. */
+export function isExternalUser(username: string): boolean {
+  return EXTERNAL_PREFIXES.some((prefix) => username.startsWith(prefix));
+}
+
+/**
+ * True only for Hub-managed local accounts.
+ *
+ * Defined as "carries no external provider prefix" rather than "is not a
+ * GitHub user", so a new provider does not silently fall into this bucket.
+ */
 export function isNativeUser(username: string): boolean {
-  return !isGitHubUser(username);
+  return !isExternalUser(username);
+}
+
+/** Short provider label for badges, or null for local accounts. */
+export function externalProviderLabel(username: string): string | null {
+  if (isGitHubUser(username)) return "GitHub";
+  if (isSamlUser(username)) return "SSO";
+  return null;
 }

@@ -85,7 +85,29 @@ if "jupyterhub.handlers" not in sys.modules:
 
 if "jupyterhub.utils" not in sys.modules:
     utils_module = types.ModuleType("jupyterhub.utils")
-    utils_module.url_path_join = lambda *parts: "/".join(p.strip("/") for p in parts if p)
+
+    def _url_path_join(*pieces):
+        """Mirror jupyterhub.utils.url_path_join, including leading/trailing slashes.
+
+        A naive join drops the leading slash, which matters here: a cookie Path
+        that does not start with "/" is ignored by browsers (RFC 6265 5.2.4),
+        so a lossy stub would hide a real scoping regression.
+        """
+        pieces = list(pieces)
+        while pieces and not pieces[-1]:
+            del pieces[-1]
+        if not pieces:
+            return ""
+        initial = pieces[0].startswith("/")
+        final = pieces[-1].endswith("/")
+        result = "/".join(s for s in (p.strip("/") for p in pieces) if s)
+        if initial:
+            result = "/" + result
+        if final:
+            result = result + "/"
+        return "/" if result == "//" else result
+
+    utils_module.url_path_join = _url_path_join
 
     async def _maybe_future(obj):
         """Mirror jupyterhub.utils.maybe_future: await awaitables, pass through values."""
@@ -369,21 +391,12 @@ def test_build_saml_settings_multi_auth_prefix():
     assert settings["sp"]["assertionConsumerService"]["url"] == "https://hub.example.com/hub/saml/acs"
 
 
-def test_build_saml_settings_slo_url():
-    auth = _make_auth(
-        idp_entity_id="https://idp.example.com/entity",
-        idp_sso_url="https://idp.example.com/sso",
-        idp_slo_url="https://idp.example.com/slo",
-    )
-    handler = DummyHandler()
+def test_build_saml_settings_never_advertises_single_logout():
+    """SLO is not implemented, so settings must not claim the endpoint.
 
-    settings = auth._build_saml_settings(handler)
-
-    assert "singleLogoutService" in settings["idp"]
-    assert settings["idp"]["singleLogoutService"]["url"] == "https://idp.example.com/slo"
-
-
-def test_build_saml_settings_no_slo_url():
+    There is no /slo handler and process_slo() is never called; carrying a
+    SingleLogoutService entry would describe a flow this SP cannot complete.
+    """
     auth = _make_auth(
         idp_entity_id="https://idp.example.com/entity",
         idp_sso_url="https://idp.example.com/sso",
@@ -393,6 +406,30 @@ def test_build_saml_settings_no_slo_url():
     settings = auth._build_saml_settings(handler)
 
     assert "singleLogoutService" not in settings["idp"]
+    assert not hasattr(auth, "idp_slo_url")
+
+
+def test_slo_endpoint_from_idp_metadata_is_dropped(monkeypatch):
+    """Published IdP metadata commonly includes SLO; it must not survive the merge."""
+    saml_module._idp_metadata_cache.clear()
+    monkeypatch.setattr(
+        saml_module.OneLogin_Saml2_IdPMetadataParser,
+        "parse_remote",
+        lambda _url: {
+            "idp": {
+                "entityId": "https://idp.example.com/entity",
+                "singleSignOnService": {"url": "https://idp.example.com/sso"},
+                "singleLogoutService": {"url": "https://idp.example.com/slo"},
+            }
+        },
+    )
+    auth = _make_auth(idp_metadata_url="https://idp.example.com/metadata")
+
+    settings = auth._build_saml_settings(DummyHandler())
+
+    assert settings["idp"]["entityId"] == "https://idp.example.com/entity"
+    assert "singleLogoutService" not in settings["idp"]
+    saml_module._idp_metadata_cache.clear()
 
 
 def test_build_saml_settings_signed_requests():
@@ -486,14 +523,14 @@ def test_get_handlers_stays_unscoped_when_wrapped_by_multiauthenticator():
 
 
 def test_login_url_points_at_the_scoped_route_when_standalone():
-    assert _make_auth().login_url("/hub") == "hub/saml/login"
+    assert _make_auth().login_url("/hub") == "/hub/saml/login"
 
 
 def test_login_url_stays_unscoped_when_wrapped_by_multiauthenticator():
     class WrappedSAMLAuthenticator(CustomSAMLAuthenticator):
         pass
 
-    assert WrappedSAMLAuthenticator().login_url("/hub") == "hub/login"
+    assert WrappedSAMLAuthenticator().login_url("/hub") == "/hub/login"
 
 
 # ---------------------------------------------------------------------------
@@ -770,7 +807,7 @@ def test_acs_authenticates_and_logs_in_user(monkeypatch):
 
     assert handler.created_usernames == ["saml:alice@example.com"]
     assert handler.logged_in_user is handler
-    assert handler.redirected_to == "hub/home"
+    assert handler.redirected_to == "/hub/home"
 
 
 def test_acs_persists_auth_state_with_saml_attributes(monkeypatch):
@@ -884,7 +921,7 @@ def test_acs_rejects_cross_origin_relay_state(monkeypatch):
 
     _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
 
-    assert handler.redirected_to == "hub/home"
+    assert handler.redirected_to == "/hub/home"
 
 
 def test_saml_prefix_literals_match_the_authenticator_constant():
@@ -1085,7 +1122,8 @@ def test_login_stores_the_request_id_in_a_cross_site_capable_cookie(monkeypatch)
     assert cookie["samesite"] == "None"
     assert cookie["secure"] is True
     assert cookie["httponly"] is True
-    assert cookie["path"] == "hub/saml"
+    # Must be absolute: browsers ignore a relative cookie Path (RFC 6265 5.2.4).
+    assert cookie["path"] == "/hub/saml"
     assert handler.redirected_to.startswith("https://idp.example.com/sso")
 
 

@@ -21,7 +21,7 @@ import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { Table, Button, Form, InputGroup, Badge, Spinner, Alert, ButtonGroup, Modal, Dropdown } from 'react-bootstrap';
 import type { User, UserQuota, Server, Group } from '@auplc/shared';
 import * as api from '@auplc/shared';
-import { isGitHubUser, isNativeUser as isNativeUsername } from '@auplc/shared';
+import { externalProviderLabel, isNativeUser as isNativeUsername } from '@auplc/shared';
 import { CreateUserModal } from '../components/CreateUserModal';
 import { SetPasswordModal } from '../components/SetPasswordModal';
 import { BatchPasswordModal } from '../components/BatchPasswordModal';
@@ -158,8 +158,8 @@ const UserRow = memo(function UserRow({
         </td>
         <td>
           {user.name}
-          {isGitHubUser(user.name) && (
-            <Badge bg="info" className="ms-2">GitHub</Badge>
+          {externalProviderLabel(user.name) && (
+            <Badge bg="info" className="ms-2">{externalProviderLabel(user.name)}</Badge>
           )}
         </td>
         <td>

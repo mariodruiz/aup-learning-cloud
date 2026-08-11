@@ -125,12 +125,6 @@ class CustomSAMLAuthenticator(Authenticator):
         help="IdP Single Sign-On URL. Required if idp_metadata_url is not set.",
     )
 
-    idp_slo_url = Unicode(
-        "",
-        config=True,
-        help="IdP Single Logout URL (optional).",
-    )
-
     idp_x509_cert = Unicode(
         "",
         config=True,
@@ -218,10 +212,11 @@ class CustomSAMLAuthenticator(Authenticator):
     def _get_handler_prefix(self, handler):
         """Derive the handler prefix from the request path.
 
-        In standalone mode, handlers are at /hub/login, /hub/acs, etc.
-        In multi-auth mode with url_prefix="/saml", they're at
-        /hub/saml/login, /hub/saml/acs, etc. We need to determine the
-        correct base path for SP URLs (entity ID, ACS URL).
+        Handlers live under /hub/saml/ in both modes: standalone applies
+        ``url_scope`` itself, and MultiAuthenticator applies the matching
+        url_prefix. Deriving the prefix from the request keeps the SP URLs
+        (entity ID, ACS URL) identical either way, so one IdP application
+        works for every provider combination.
         """
         path = handler.request.path
         hub_base = handler.hub.base_url.rstrip("/")
@@ -287,17 +282,17 @@ class CustomSAMLAuthenticator(Authenticator):
             },
         }
 
-        if self.idp_slo_url:
-            settings["idp"]["singleLogoutService"] = {
-                "url": self.idp_slo_url,
-                "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
-            }
-
         # Merge IdP metadata if URL is configured (overrides inline IdP config)
         if self.idp_metadata_url:
             metadata = self._get_idp_metadata()
             if metadata and "idp" in metadata:
                 settings["idp"].update(metadata["idp"])
+
+        # Single Logout is not implemented: there is no /slo handler and
+        # process_slo() is never called. Published IdP metadata often carries a
+        # SingleLogoutService endpoint, so drop it rather than keep settings
+        # that advertise a flow this SP cannot complete.
+        settings["idp"].pop("singleLogoutService", None)
 
         return settings
 
@@ -364,6 +359,15 @@ class CustomSAMLAuthenticator(Authenticator):
         return {"name": f"{SAML_USERNAME_PREFIX}{username}", "auth_state": auth_state}
 
     async def refresh_user(self, user, handler=None):
+        """Accept the existing session without revalidating against the IdP.
+
+        SAML has no refresh token to exchange, and re-checking would mean a
+        full redirect to the IdP mid-session. The deliberate consequence is
+        that a user deprovisioned upstream keeps their Hub session until the
+        JupyterHub cookie expires (``JupyterHub.cookie_max_age_days``); shorten
+        that value where prompt revocation matters. ``auth_state`` retains the
+        SAML ``session_index``, which a future implementation would need.
+        """
         return True
 
     def get_handlers(self, app):

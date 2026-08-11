@@ -293,8 +293,19 @@ removed from a group at the IdP loses the corresponding JupyterHub group on
 their next session. Users with no matching group fall back to `saml-users`,
 then `native-users`, then `official`.
 
-Single Logout is not implemented. Logging out ends the Hub session only; the
-IdP session remains active.
+### Session lifecycle limits
+
+Two behaviours to plan around, both deliberate:
+
+- **Single Logout is not implemented.** There is no `/hub/saml/slo` endpoint,
+  and any `SingleLogoutService` in the IdP metadata is discarded. Logging out
+  ends the Hub session only; the IdP session stays active, so the next login
+  may complete without a credential prompt. Treat shared or lab machines
+  accordingly.
+- **Sessions are not revalidated against the IdP.** SAML has no refresh token,
+  so a user deprovisioned upstream keeps their Hub session until the
+  JupyterHub cookie expires. Lower `JupyterHub.cookie_max_age_days` where
+  prompt revocation matters. Group membership *is* re-synced on every spawn.
 
 ## 7. Native accounts
 

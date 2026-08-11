@@ -651,7 +651,6 @@ hub:
     #
     # Defaults (only override if needed):
     #     idp_metadata_ttl_seconds: 3600  # how often to re-fetch IdP metadata
-    #     idp_slo_url: ""                 # IdP Single Logout URL
     #     sp_x509_cert: ""                # SP certificate for signed requests
     #     sp_private_key: ""              # SP private key for signed requests
     #     username_attribute: ""          # SAML attribute for username (empty = NameID)

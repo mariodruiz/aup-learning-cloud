@@ -21,7 +21,7 @@ import { useState, useEffect } from 'react';
 import { Modal, Button, Badge, Alert, Form, InputGroup } from 'react-bootstrap';
 import type { User, Group } from '@auplc/shared';
 import * as api from '@auplc/shared';
-import { isGitHubUser as isGitHubUsername } from '@auplc/shared';
+import { externalProviderLabel, isExternalUser } from '@auplc/shared';
 
 interface Props {
   show: boolean;
@@ -107,7 +107,8 @@ export function EditUserModal({ show, user, onHide, onUpdate }: Props) {
     return new Date(dateStr).toLocaleString();
   };
 
-  const isGitHubUser = isGitHubUsername(user.name);
+  const isExternal = isExternalUser(user.name);
+  const providerLabel = externalProviderLabel(user.name);
 
   return (
     <Modal show={show} onHide={onHide} size="lg">
@@ -134,12 +135,12 @@ export function EditUserModal({ show, user, onHide, onUpdate }: Props) {
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="New username"
-                  disabled={loading || isGitHubUser}
+                  disabled={loading || isExternal}
                 />
               </InputGroup>
               <Form.Text className="text-muted">
-                {isGitHubUser
-                  ? 'GitHub App usernames cannot be renamed'
+                {isExternal
+                  ? `${providerLabel} usernames are managed by the identity provider and cannot be renamed`
                   : 'Only letters, numbers, hyphens, and underscores allowed'}
               </Form.Text>
             </Form.Group>
@@ -200,7 +201,7 @@ export function EditUserModal({ show, user, onHide, onUpdate }: Props) {
                     <th style={{ width: '30%' }}>Username</th>
                     <td>
                       {user.name}
-                      {isGitHubUser && <Badge bg="info" className="ms-2">GitHub</Badge>}
+                      {providerLabel && <Badge bg="info" className="ms-2">{providerLabel}</Badge>}
                     </td>
                   </tr>
                   <tr>
