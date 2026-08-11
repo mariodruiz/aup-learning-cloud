@@ -682,8 +682,8 @@ class AdminAPIProvisionUsersHandler(APIHandler):
                     results["failed"] += 1
                     results["results"].append(result)
                     continue
-                if username.startswith(GITHUB_USERNAME_PREFIX):
-                    result["error"] = "Cannot provision native password for GitHub users"
+                if _is_external_user(username):
+                    result["error"] = "Cannot provision native password for external SSO users"
                     results["failed"] += 1
                     results["results"].append(result)
                     continue

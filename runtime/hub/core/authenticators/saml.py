@@ -83,6 +83,12 @@ class CustomSAMLAuthenticator(Authenticator):
     prefix = ""
     identity_prefix = SAML_USERNAME_PREFIX
 
+    # Standalone SAML mounts its routes under this scope so it does not shadow
+    # JupyterHub's own /hub/login page, which still renders the SSO card,
+    # announcements and login errors. MultiAuthenticator applies the same
+    # prefix itself, so the scope is only added when running unwrapped.
+    url_scope = "/saml"
+
     login_service = Unicode(
         "AMD SSO",
         config=True,
@@ -300,6 +306,8 @@ class CustomSAMLAuthenticator(Authenticator):
             return cached[0]
 
     def login_url(self, base_url):
+        if type(self) is CustomSAMLAuthenticator:
+            base_url = f"{base_url.rstrip('/')}{self.url_scope}"
         return url_path_join(base_url, "login")
 
     async def authenticate(self, handler, data=None):
@@ -450,8 +458,11 @@ class CustomSAMLAuthenticator(Authenticator):
                 self.set_header("Content-Type", "application/xml")
                 self.write(metadata)
 
-        return [
+        handlers = [
             (r"/login", SAMLLoginHandler),
             (r"/acs", SAMLACSHandler),
             (r"/metadata", SAMLMetadataHandler),
         ]
+        if type(self) is CustomSAMLAuthenticator:
+            return [(f"{self.url_scope}{path}", handler) for path, handler in handlers]
+        return handlers

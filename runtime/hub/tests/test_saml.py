@@ -453,15 +453,29 @@ def test_build_saml_settings_security_defaults():
 # ---------------------------------------------------------------------------
 
 
-def test_get_handlers_returns_three_routes():
+def test_get_handlers_scopes_routes_under_saml_when_standalone():
+    """Standalone SAML must not shadow JupyterHub's own /hub/login page.
+
+    Regression: unscoped routes registered ahead of JupyterHub's defaults, so
+    /hub/login redirected straight to the IdP and the login template never
+    rendered (no SSO card, announcements or login errors).
+    """
     auth = _make_auth()
     handlers = auth.get_handlers(None)
 
     routes = [h[0] for h in handlers]
-    assert r"/login" in routes
-    assert r"/acs" in routes
-    assert r"/metadata" in routes
-    assert len(handlers) == 3
+    assert routes == ["/saml/login", "/saml/acs", "/saml/metadata"]
+
+
+def test_get_handlers_stays_unscoped_when_wrapped_by_multiauthenticator():
+    """MultiAuthenticator adds the /saml prefix itself; adding it here too
+    would produce /saml/saml/login."""
+
+    class WrappedSAMLAuthenticator(CustomSAMLAuthenticator):
+        pass
+
+    routes = [h[0] for h in WrappedSAMLAuthenticator().get_handlers(None)]
+    assert routes == ["/login", "/acs", "/metadata"]
 
 
 # ---------------------------------------------------------------------------
@@ -469,10 +483,15 @@ def test_get_handlers_returns_three_routes():
 # ---------------------------------------------------------------------------
 
 
-def test_login_url():
-    auth = _make_auth()
-    url = auth.login_url("/hub")
-    assert "login" in url
+def test_login_url_points_at_the_scoped_route_when_standalone():
+    assert _make_auth().login_url("/hub") == "hub/saml/login"
+
+
+def test_login_url_stays_unscoped_when_wrapped_by_multiauthenticator():
+    class WrappedSAMLAuthenticator(CustomSAMLAuthenticator):
+        pass
+
+    assert WrappedSAMLAuthenticator().login_url("/hub") == "hub/login"
 
 
 # ---------------------------------------------------------------------------
@@ -689,7 +708,7 @@ class RecordingACSHandler:
 
 def _acs_handler_class(authenticator):
     handlers = dict(authenticator.get_handlers(app=None))
-    return handlers["/acs"]
+    return handlers[f"{authenticator.url_scope}/acs"]
 
 
 def _status_of(error):

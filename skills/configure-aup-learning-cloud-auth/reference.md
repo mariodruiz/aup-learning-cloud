@@ -39,6 +39,21 @@ custom:
   auth:
     native: true
     github: true
+---
+custom:
+  auth:
+    saml: true
+---
+custom:
+  auth:
+    native: true
+    saml: true
+---
+custom:
+  auth:
+    native: true
+    github: true
+    saml: true
 ```
 
 - Auto-login provides a shared session with no credentials.
@@ -46,15 +61,21 @@ custom:
 - Native provides administrator-managed accounts.
 - GitHub uses the GitHub App at `/hub/github/oauth_callback` in both GitHub-only
   and native-plus-GitHub modes.
+- SAML performs SP-initiated SSO against any SAML 2.0 IdP at
+  `/hub/saml/acs`, in SAML-only and every composed mode. It requires
+  `hub.config.CustomSAMLAuthenticator` settings; see section 2.
 
-GitHub users always have the local AUP Learning Cloud username
-`github:<normalized-login>` in both GitHub-only and native-plus-GitHub modes.
+External identities always carry a provider prefix in their local AUP Learning
+Cloud username: `github:<normalized-login>` and `saml:<nameid-or-attribute>`.
 Native users remain unprefixed. Configure GitHub `allowed_users`, `admin_users`,
 `blocked_users`, and `allowed_organizations` with raw GitHub logins and
-organizations, not the local `github:` username.
+organizations, not the local `github:` username. Prefixed users cannot be given
+native passwords; password management applies to unprefixed accounts only.
 
-All five combinations use `custom.teams.mapping` and the existing fallback
+All eight combinations use `custom.teams.mapping` and the existing fallback
 groups for resource visibility. Provider selection doesn't change that policy.
+SAML users fall back to the `saml-users` group mapping, then `native-users`,
+then `official`.
 
 ## Runtime timer and credit enforcement
 

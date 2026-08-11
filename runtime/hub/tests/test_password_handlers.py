@@ -166,14 +166,17 @@ def test_admin_api_batch_can_set_bootstrap_administrator_password(loaded_handler
     assert authenticator.changes == [("operator", "NewPassword1!", True)]
 
 
-def test_github_users_remain_blocked_from_native_password_changes(loaded_handlers, monkeypatch) -> None:
+@pytest.mark.parametrize("username", ["github:octo", "saml:alice@example.com"])
+def test_external_sso_users_remain_blocked_from_native_password_changes(
+    loaded_handlers, monkeypatch, username: str
+) -> None:
     authenticator = PasswordAuthenticator()
     configure_local_bootstrap(monkeypatch)
     monkeypatch.setattr(loaded_handlers.handlers, "_find_firstuse_authenticator", lambda _auth: authenticator)
     handler = object.__new__(loaded_handlers.handlers.AdminAPISetPasswordHandler)
     handler.current_user = DummyUser("manager", admin=True)
     handler.authenticator = object()
-    handler.request = SimpleNamespace(body=b'{"username":"github:octo","password":"NewPassword1!"}')
+    handler.request = SimpleNamespace(body=json.dumps({"username": username, "password": "NewPassword1!"}).encode())
     handler.set_header = lambda *_args: None
     handler.set_status = lambda status: setattr(handler, "status", status)
     handler.finish = lambda payload: setattr(handler, "body", payload)
@@ -182,7 +185,7 @@ def test_github_users_remain_blocked_from_native_password_changes(loaded_handler
     asyncio.run(handler.post())
 
     assert handler.status == 400
-    assert json.loads(handler.body) == {"error": "Cannot set password for GitHub users"}
+    assert json.loads(handler.body) == {"error": "Cannot set password for external SSO users"}
     assert authenticator.changes == []
 
 
@@ -216,6 +219,50 @@ def test_admin_provisioning_rejects_username_that_local_login_would_reject(loade
     payload = json.loads(handler.body)
     assert payload["failed"] == 1
     assert payload["results"][0]["error"] == "Invalid username: Admin"
+
+
+@pytest.mark.parametrize("username", ["github:octo", "saml:alice@example.com"])
+def test_admin_provisioning_refuses_to_create_native_passwords_for_sso_identities(
+    loaded_handlers, monkeypatch, username: str
+) -> None:
+    """Federated identities must never get a shadow local credential.
+
+    Regression: this handler checked only the GitHub prefix, and
+    ``validate_username`` accepts ``saml:`` because it is a registered
+    MultiAuthenticator prefix, so nothing downstream blocked provisioning.
+    """
+
+    class LoginAuthenticator:
+        def validate_username(self, _username):
+            return True
+
+    class NativeAuthenticator:
+        def normalize_username(self, username):
+            return username.lower()
+
+        def _check_password_strength(self, _password):
+            return None
+
+        def set_password(self, *_args, **_kwargs):
+            raise AssertionError("external SSO identity must not get a native password")
+
+    handler = object.__new__(loaded_handlers.handlers.AdminAPIProvisionUsersHandler)
+    handler.current_user = DummyUser("operator", admin=True)
+    handler.authenticator = LoginAuthenticator()
+    handler.request = SimpleNamespace(
+        body=json.dumps({"users": [{"username": username, "password": "Password1!"}]}).encode()
+    )
+    handler.find_user = lambda _username: None
+    handler.set_header = lambda *_args: None
+    handler.finish = lambda payload: setattr(handler, "body", payload)
+    handler.log = SimpleNamespace(error=lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(loaded_handlers.handlers, "_find_firstuse_authenticator", lambda _auth: NativeAuthenticator())
+
+    asyncio.run(handler.post())
+
+    payload = json.loads(handler.body)
+    assert payload["failed"] == 1
+    assert payload["results"][0]["error"] == "Cannot provision native password for external SSO users"
 
 
 def test_password_handlers_find_native_authenticator_directly_and_in_composition(loaded_handlers) -> None:
