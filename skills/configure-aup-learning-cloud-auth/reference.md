@@ -64,6 +64,11 @@ custom:
 - SAML performs SP-initiated SSO against any SAML 2.0 IdP at
   `/hub/saml/acs`, in SAML-only and every composed mode. It requires
   `hub.config.CustomSAMLAuthenticator` settings; see section 2.
+  **SAML requires HTTPS**: the SP correlates each AuthnRequest with the IdP's
+  Response (InResponseTo) through a `SameSite=None; Secure` cookie, and
+  browsers only send those over TLS. Responses that answer no AuthnRequest
+  from this SP are rejected; set `reject_unsolicited_responses: false` only if
+  you need IdP-initiated login.
 
 External identities always carry a provider prefix in their local AUP Learning
 Cloud username: `github:<normalized-login>` and `saml:<nameid-or-attribute>`.

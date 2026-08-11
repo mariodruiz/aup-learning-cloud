@@ -41,6 +41,12 @@ log = logging.getLogger("jupyterhub.auth.saml")
 
 SAML_USERNAME_PREFIX = "saml:"
 
+# Correlates an outbound AuthnRequest with the Response the IdP posts back.
+# The IdP posts to the ACS from its own origin, so this is a cross-site POST
+# and the cookie must be SameSite=None to be sent at all. Browsers only accept
+# SameSite=None together with Secure, which is why SAML requires HTTPS.
+SAML_REQUEST_ID_COOKIE = "auplc-saml-req-id"
+
 _idp_metadata_cache: dict[str, tuple[dict, float]] = {}
 
 
@@ -177,6 +183,24 @@ class CustomSAMLAuthenticator(Authenticator):
         False,
         config=True,
         help="Require the SAML response envelope to be signed.",
+    )
+
+    reject_unsolicited_responses = Bool(
+        True,
+        config=True,
+        help=(
+            "Require every SAML Response to answer an AuthnRequest this SP issued "
+            "(InResponseTo validation). Set to False only to support IdP-initiated "
+            "login (e.g. an Okta dashboard tile); doing so lets the SP accept any "
+            "validly signed, in-window assertion from the IdP, including ones minted "
+            "for a different service provider in the same tenant."
+        ),
+    )
+
+    request_id_cookie_max_age_seconds = Int(
+        600,
+        config=True,
+        help="How long an in-flight SAML AuthnRequest may wait at the IdP before its response is rejected.",
     )
 
     @property
@@ -356,6 +380,22 @@ class CustomSAMLAuthenticator(Authenticator):
                 next_url = self.get_argument("next", "")
                 next_url = self._validate_next_url(next_url) if next_url else ""
                 redirect_url = auth.login(return_to=next_url)
+
+                # Remember which AuthnRequest this is so the ACS can verify the
+                # Response answers it. Signed with the Hub cookie secret, so the
+                # value cannot be forged by whoever controls the browser.
+                request_id = auth.get_last_request_id()
+                if request_id:
+                    self.set_secure_cookie(
+                        SAML_REQUEST_ID_COOKIE,
+                        request_id,
+                        expires_days=authenticator.request_id_cookie_max_age_seconds / 86400,
+                        httponly=True,
+                        secure=True,
+                        samesite="None",
+                        path=url_path_join(self.hub.base_url, authenticator.url_scope),
+                    )
+
                 self.redirect(redirect_url)
 
         class SAMLACSHandler(BaseHandler):
@@ -364,11 +404,42 @@ class CustomSAMLAuthenticator(Authenticator):
             def check_xsrf_cookie(self):
                 pass
 
+            def _consume_request_id(self):
+                """Return the AuthnRequest ID this SP issued, clearing the cookie.
+
+                Absent means the Response does not answer a request we made:
+                either an IdP-initiated login, a replayed assertion, or a user
+                who took longer than the cookie lifetime at the IdP.
+                """
+                cookie_path = url_path_join(self.hub.base_url, authenticator.url_scope)
+                raw = self.get_secure_cookie(
+                    SAML_REQUEST_ID_COOKIE,
+                    max_age_days=authenticator.request_id_cookie_max_age_seconds / 86400,
+                )
+                if raw is not None:
+                    self.clear_cookie(SAML_REQUEST_ID_COOKIE, path=cookie_path)
+                    return raw.decode("utf-8", errors="replace")
+                return None
+
             async def post(self):
                 saml_settings = authenticator._build_saml_settings(self)
                 req = _prepare_tornado_request(self, force_https=authenticator._force_https)
                 auth = OneLogin_Saml2_Auth(req, saml_settings)
-                auth.process_response()
+
+                request_id = self._consume_request_id()
+                if request_id is None and authenticator.reject_unsolicited_responses:
+                    log.error(
+                        "Rejected a SAML Response with no matching AuthnRequest from this SP. "
+                        "This is an unsolicited (IdP-initiated) response, a replay, or a login "
+                        "that took longer than request_id_cookie_max_age_seconds. SAML requires "
+                        "HTTPS because the correlation cookie is SameSite=None; Secure. To allow "
+                        "IdP-initiated login instead, set reject_unsolicited_responses=False."
+                    )
+                    raise web.HTTPError(403, "SAML authentication failed: unsolicited response")
+
+                # With request_id set, python3-saml enforces that the Response's
+                # InResponseTo matches the AuthnRequest we issued.
+                auth.process_response(request_id=request_id)
 
                 errors = auth.get_errors()
                 if errors:

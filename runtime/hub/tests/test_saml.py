@@ -160,6 +160,7 @@ def load_module(name: str, path: Path):
 
 saml_module = load_module("core.authenticators.saml", CORE / "authenticators" / "saml.py")
 CustomSAMLAuthenticator = saml_module.CustomSAMLAuthenticator
+SAML_REQUEST_ID_COOKIE = saml_module.SAML_REQUEST_ID_COOKIE
 _prepare_tornado_request = saml_module._prepare_tornado_request
 
 
@@ -635,6 +636,9 @@ def test_idp_metadata_cached_per_url(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+_UNSET = object()
+
+
 class FakeSamlAuth:
     """Stand-in for OneLogin_Saml2_Auth with a successful assertion."""
 
@@ -642,8 +646,12 @@ class FakeSamlAuth:
         self._nameid = nameid
         self._attributes = attributes or {}
         self._errors = errors or []
+        self.request_id_received = _UNSET
 
-    def process_response(self):
+    def process_response(self, request_id=None):
+        # Record what the ACS forwarded: python3-saml only enforces
+        # InResponseTo when this is not None.
+        self.request_id_received = request_id
         return None
 
     def get_errors(self):
@@ -668,7 +676,10 @@ class FakeSamlAuth:
 class RecordingACSHandler:
     """Captures the side effects the ACS handler performs on success."""
 
-    def __init__(self, request=None, hub=None, relay_state=""):
+    # Default models the normal SP-initiated flow: the browser returns the
+    # correlation cookie set at /saml/login. Pass request_id_cookie=None
+    # explicitly to simulate an unsolicited response.
+    def __init__(self, request=None, hub=None, relay_state="", request_id_cookie="ONELOGIN_req-1"):
         self.request = request or DummyRequest(path="/hub/saml/acs")
         self.hub = hub or DummyHub()
         self.relay_state = relay_state
@@ -676,6 +687,22 @@ class RecordingACSHandler:
         self.logged_in_user = None
         self.redirected_to = None
         self.created_usernames = []
+        # Signed cookies the browser would send back, plus what the handler did.
+        self.secure_cookies = {} if request_id_cookie is None else {SAML_REQUEST_ID_COOKIE: request_id_cookie}
+        self.saml_request_id_seen = None
+        self.set_cookies = {}
+        self.cleared_cookies = []
+
+    def set_secure_cookie(self, name, value, **kwargs):
+        self.set_cookies[name] = {"value": value, **kwargs}
+
+    def get_secure_cookie(self, name, max_age_days=None):
+        value = self.secure_cookies.get(name)
+        return value.encode() if isinstance(value, str) else value
+
+    def clear_cookie(self, name, **kwargs):
+        self.cleared_cookies.append(name)
+        self.secure_cookies.pop(name, None)
 
     def get_argument(self, name, default=None):
         if name == "RelayState":
@@ -720,8 +747,12 @@ def _status_of(error):
 def _run_acs(authenticator, handler, fake_auth, monkeypatch):
     monkeypatch.setattr(saml_module, "OneLogin_Saml2_Auth", lambda req, settings: fake_auth)
     acs_class = _acs_handler_class(authenticator)
-    post = acs_class.post
-    return asyncio.run(post(handler))
+    # The handler is duck-typed rather than a real BaseHandler subclass, so
+    # bind the production helper that post() relies on instead of stubbing it.
+    handler._consume_request_id = acs_class._consume_request_id.__get__(handler, type(handler))
+    result = asyncio.run(acs_class.post(handler))
+    handler.saml_request_id_seen = fake_auth.request_id_received
+    return result
 
 
 def test_acs_authenticates_and_logs_in_user(monkeypatch):
@@ -991,3 +1022,144 @@ def test_first_idp_metadata_fetch_failure_is_explained_before_raising(monkeypatc
     assert "no cached copy exists" in caplog.text
     assert "idp_metadata_url" in caplog.text
     saml_module._idp_metadata_cache.clear()
+
+
+# ---------------------------------------------------------------------------
+# Tests: InResponseTo correlation (unsolicited response rejection)
+# ---------------------------------------------------------------------------
+
+
+class RecordingLoginHandler(RecordingACSHandler):
+    """Captures the redirect and correlation cookie set by /saml/login."""
+
+    def __init__(self, next_url="", **kwargs):
+        super().__init__(request=DummyRequest(path="/hub/saml/login"), **kwargs)
+        self.next_url = next_url
+
+    def get_argument(self, name, default=None):
+        if name == "next":
+            return self.next_url or default
+        return default
+
+
+class FakeLoginAuth(FakeSamlAuth):
+    def __init__(self, request_id="ONELOGIN_abc123", **kwargs):
+        super().__init__(**kwargs)
+        self._request_id = request_id
+        self.return_to = _UNSET
+
+    def login(self, return_to=None):
+        self.return_to = return_to
+        return "https://idp.example.com/sso?SAMLRequest=..."
+
+    def get_last_request_id(self):
+        return self._request_id
+
+
+def _run_login(authenticator, handler, fake_auth, monkeypatch):
+    monkeypatch.setattr(saml_module, "OneLogin_Saml2_Auth", lambda req, settings: fake_auth)
+    handlers = dict(authenticator.get_handlers(app=None))
+    login_class = handlers[f"{authenticator.url_scope}/login"]
+    return asyncio.run(login_class.get(handler))
+
+
+def _saml_auth():
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    auth.allow_all = True
+    return auth
+
+
+def test_login_stores_the_request_id_in_a_cross_site_capable_cookie(monkeypatch):
+    """The IdP posts to the ACS cross-site, so the cookie needs SameSite=None.
+
+    Browsers only honour SameSite=None together with Secure, which is why the
+    Secure flag is unconditional rather than tied to the deployment scheme.
+    """
+    auth = _saml_auth()
+    handler = RecordingLoginHandler()
+
+    _run_login(auth, handler, FakeLoginAuth(), monkeypatch)
+
+    cookie = handler.set_cookies[SAML_REQUEST_ID_COOKIE]
+    assert cookie["value"] == "ONELOGIN_abc123"
+    assert cookie["samesite"] == "None"
+    assert cookie["secure"] is True
+    assert cookie["httponly"] is True
+    assert cookie["path"] == "hub/saml"
+    assert handler.redirected_to.startswith("https://idp.example.com/sso")
+
+
+def test_acs_forwards_the_stored_request_id_so_inresponseto_is_enforced(monkeypatch):
+    """Regression: process_response() was called with no request_id, which
+    disables python3-saml's InResponseTo check entirely."""
+    auth = _saml_auth()
+    handler = RecordingACSHandler(request_id_cookie="ONELOGIN_abc123")
+
+    _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
+
+    assert handler.saml_request_id_seen == "ONELOGIN_abc123"
+    assert handler.logged_in_user is handler
+
+
+def test_acs_consumes_the_request_id_cookie_so_it_cannot_be_replayed(monkeypatch):
+    auth = _saml_auth()
+    handler = RecordingACSHandler(request_id_cookie="ONELOGIN_abc123")
+
+    _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
+
+    assert SAML_REQUEST_ID_COOKIE in handler.cleared_cookies
+    assert SAML_REQUEST_ID_COOKIE not in handler.secure_cookies
+
+
+def test_acs_rejects_an_unsolicited_response_by_default(monkeypatch, caplog):
+    """No correlation cookie means the assertion answers no request we made."""
+    auth = _saml_auth()
+    handler = RecordingACSHandler(request_id_cookie=None)
+
+    with caplog.at_level("ERROR", logger="jupyterhub.auth.saml"):
+        try:
+            _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
+        except saml_module.web.HTTPError as error:
+            assert _status_of(error) == 403
+        else:
+            raise AssertionError("unsolicited SAML response was accepted")
+
+    assert handler.logged_in_user is None
+    assert "unsolicited" in caplog.text.lower()
+    assert "reject_unsolicited_responses=False" in caplog.text
+
+
+def test_acs_allows_idp_initiated_login_when_the_operator_opts_in(monkeypatch):
+    """Opting out must still work, for Okta-dashboard-tile style launches."""
+    auth = _saml_auth()
+    auth.reject_unsolicited_responses = False
+    handler = RecordingACSHandler(request_id_cookie=None)
+
+    _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
+
+    assert handler.logged_in_user is handler
+    # No request id to correlate against, so InResponseTo cannot be enforced.
+    assert handler.saml_request_id_seen is None
+
+
+def test_expired_correlation_cookie_is_treated_as_unsolicited(monkeypatch):
+    """A user who idles at the IdP past the TTL gets a clean rejection."""
+    auth = _saml_auth()
+    handler = RecordingACSHandler(request_id_cookie=None)
+
+    try:
+        _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
+    except saml_module.web.HTTPError as error:
+        assert _status_of(error) == 403
+    else:
+        raise AssertionError("expired correlation must not authenticate")
+
+
+def test_request_id_cookie_lifetime_is_derived_from_the_configured_ttl(monkeypatch):
+    auth = _saml_auth()
+    auth.request_id_cookie_max_age_seconds = 300
+    handler = RecordingLoginHandler()
+
+    _run_login(auth, handler, FakeLoginAuth(), monkeypatch)
+
+    assert handler.set_cookies[SAML_REQUEST_ID_COOKIE]["expires_days"] == 300 / 86400

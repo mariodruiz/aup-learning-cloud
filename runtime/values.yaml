@@ -659,6 +659,19 @@ hub:
     #     login_service: "AMD SSO"        # label shown on the login button
     #     want_assertions_signed: true    # require signed assertions
     #     want_response_signed: false     # require signed response envelope
+    #
+    # Security note: SAML requires HTTPS. The SP correlates each AuthnRequest
+    # with the IdP's Response (InResponseTo) using a SameSite=None; Secure
+    # cookie, which browsers only send over TLS.
+    #     reject_unsolicited_responses: true  # refuse responses that answer no
+    #                                         # AuthnRequest from this SP. Set
+    #                                         # false only for IdP-initiated
+    #                                         # login (e.g. an Okta tile); this
+    #                                         # lets the SP accept any signed,
+    #                                         # in-window assertion the IdP
+    #                                         # issues, including ones minted
+    #                                         # for another SP in the tenant.
+    #     request_id_cookie_max_age_seconds: 600  # in-flight AuthnRequest TTL
 
     # ---- KubeSpawner Prepuller Setup ----
     KubeSpawner:
