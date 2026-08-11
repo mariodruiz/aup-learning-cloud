@@ -63,7 +63,7 @@ custom:
   and native-plus-GitHub modes.
 - SAML performs SP-initiated SSO against any SAML 2.0 IdP at
   `/hub/saml/acs`, in SAML-only and every composed mode. It requires
-  `hub.config.CustomSAMLAuthenticator` settings; see section 2.
+  `hub.config.CustomSAMLAuthenticator` settings; see section 6.
   **SAML requires HTTPS**: the SP correlates each AuthnRequest with the IdP's
   Response (InResponseTo) through a `SameSite=None; Secure` cookie, and
   browsers only send those over TLS. Responses that answer no AuthnRequest
@@ -223,7 +223,80 @@ native users can be assigned `native-users`.
 The same mapping and fallback resolver applies to auto-login, dummy, native,
 GitHub, and native plus GitHub.
 
-## 6. Native accounts
+## 6. SAML 2.0 SSO — configure the Hub
+
+SAML performs SP-initiated SSO against any SAML 2.0 IdP. Routes are always
+scoped under `/hub/saml/`, in SAML-only and composed modes alike, so one IdP
+application works for every provider combination.
+
+| SP setting | Value |
+| --- | --- |
+| ACS (Reply) URL | `https://<domain>/hub/saml/acs` |
+| Entity ID / Audience | `https://<domain>/hub/saml/metadata` |
+| SP metadata | `GET https://<domain>/hub/saml/metadata` |
+
+**SAML requires HTTPS.** The SP correlates each AuthnRequest with the IdP's
+Response (InResponseTo) through a `SameSite=None; Secure` cookie, and browsers
+only send those over TLS.
+
+Option A — IdP metadata URL (recommended; auto-discovers entity ID, SSO URL
+and signing certificate, and picks up certificate rotation):
+
+```yaml
+custom:
+  auth:
+    native: true
+    saml: true
+
+hub:
+  config:
+    CustomSAMLAuthenticator:
+      idp_metadata_url: "https://your-idp.okta.com/app/APPID/sso/saml/metadata"
+      sp_entity_id: "https://<domain>/hub/saml/metadata"
+      sp_acs_url: "https://<domain>/hub/saml/acs"
+      login_service: "AMD SSO"
+      group_attribute: "groups"      # optional; syncs saml-<claim> groups
+```
+
+Option B — manual IdP settings, when no metadata URL is published:
+
+```yaml
+hub:
+  config:
+    CustomSAMLAuthenticator:
+      idp_entity_id: "http://www.okta.com/ENTITY_ID"
+      idp_sso_url: "https://your-idp.okta.com/app/APPID/sso/saml"
+      idp_x509_cert: "<base64-encoded IdP signing certificate>"
+      sp_entity_id: "https://<domain>/hub/saml/metadata"
+      sp_acs_url: "https://<domain>/hub/saml/acs"
+```
+
+Security-relevant defaults, override only with a reason:
+
+- `reject_unsolicited_responses: true` — refuse Responses that answer no
+  AuthnRequest from this SP. Setting it `false` enables IdP-initiated login
+  (e.g. an Okta dashboard tile) but lets the SP accept any signed, in-window
+  assertion the IdP issues, including ones minted for a different service
+  provider in the same tenant.
+- `want_assertions_signed: true` — assertion signatures are required. If both
+  this and `want_response_signed` are disabled, assertion signing is forced
+  back on and the override is logged.
+- `request_id_cookie_max_age_seconds: 600` — how long an in-flight login may
+  sit at the IdP before its Response is rejected.
+
+SAML usernames are `saml:<NameID>`, or `saml:<username_attribute value>` when
+`username_attribute` is set. Prefixed users cannot hold native passwords.
+
+When `group_attribute` is set, each claim value becomes a `saml-<value>`
+JupyterHub group. The sync runs on every spawn and is authoritative: a user
+removed from a group at the IdP loses the corresponding JupyterHub group on
+their next session. Users with no matching group fall back to `saml-users`,
+then `native-users`, then `official`.
+
+Single Logout is not implemented. Logging out ends the Hub session only; the
+IdP session remains active.
+
+## 7. Native accounts
 
 - The first-use authenticator sets `create_users = False` — accounts must exist
   before login (create them via the manage-users skill or `/hub/admin`).
@@ -232,7 +305,7 @@ GitHub, and native plus GitHub.
 - **Forced first-login change** uses `/auth/check-force-password-change` and
   `/auth/change-password`.
 
-## 7. Migrating OAuth App → GitHub App
+## 8. Migrating OAuth App → GitHub App
 
 Keep `oauth_callback_url` and `allowed_organizations`. Change `client_id` /
 `client_secret` to the App's, add `app_id`, `installation_id` (blank ok),
@@ -240,7 +313,7 @@ Keep `oauth_callback_url` and `allowed_organizations`. Change `client_id` /
 `gitClone.githubAppName`. Existing sessions keep working; new logins use the
 App. Delete the old OAuth App after everyone has re-logged.
 
-## 8. Apply and verify
+## 9. Apply and verify
 
 ```bash
 # render check

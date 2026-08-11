@@ -241,11 +241,22 @@ def setup_hub(c: Any) -> None:
                 assign_user_to_group(spawner.user, "saml-users", spawner.user.db)
 
                 if saml_group_attribute:
-                    saml_groups = auth_state.get("saml_attributes", {}).get(saml_group_attribute, [])
-                    if saml_groups:
-                        from core.groups import sync_saml_groups_for_user
+                    from core.groups import sync_saml_groups_for_user
 
-                        sync_saml_groups_for_user(spawner.user, saml_groups, spawner.user.db)
+                    # Sync unconditionally, including when the assertion carries
+                    # no groups: sync_saml_groups_for_user is what revokes stale
+                    # memberships, so skipping it on an empty claim would leave a
+                    # user removed from every IdP group holding their old access.
+                    # IdPs may omit the attribute, send null, or send a bare
+                    # string instead of a list; normalise before syncing.
+                    raw_groups = auth_state.get("saml_attributes", {}).get(saml_group_attribute)
+                    if raw_groups is None:
+                        saml_groups = []
+                    elif isinstance(raw_groups, str):
+                        saml_groups = [raw_groups]
+                    else:
+                        saml_groups = list(raw_groups)
+                    sync_saml_groups_for_user(spawner.user, saml_groups, spawner.user.db)
             except Exception as e:
                 print(f"[GROUPS] Warning: Failed to assign SAML user group for {spawner.user.name}: {e}")
         elif (

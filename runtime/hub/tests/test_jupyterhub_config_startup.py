@@ -58,14 +58,24 @@ class StubConfig:
         return ConfigSection()
 
 
-def test_startup_preserves_setup_and_deployment_template_vars(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    "provider_vars",
+    [
+        {"auth_native": True, "auth_github": True, "auth_saml": False},
+        {"auth_native": False, "auth_github": False, "auth_saml": True},
+        {"auth_native": True, "auth_github": True, "auth_saml": True},
+    ],
+    ids=["native-github", "saml-only", "native-github-saml"],
+)
+def test_startup_preserves_setup_and_deployment_template_vars(
+    monkeypatch: pytest.MonkeyPatch, provider_vars: dict[str, bool]
+) -> None:
     config = StubConfig()
     setup_template_vars = {
         "auth_auto_login": False,
         "auth_dummy": False,
-        "auth_native": True,
-        "auth_github": True,
-        "password_management_enabled": True,
+        **provider_vars,
+        "password_management_enabled": provider_vars["auth_native"],
         "hide_logout": False,
         "cluster_name": "test-cluster",
         "platform_name": "Test Platform",

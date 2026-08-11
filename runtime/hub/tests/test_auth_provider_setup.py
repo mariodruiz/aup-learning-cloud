@@ -389,6 +389,32 @@ def test_saml_user_skips_claim_sync_when_no_group_attribute_configured(monkeypat
         assert state.saml_group_syncs == []
 
 
+@pytest.mark.parametrize(
+    "saml_attributes",
+    [{"groups": []}, {}, {"groups": None}, {"groups": "staff"}],
+    ids=["empty-list", "attribute-absent", "null-value", "bare-string"],
+)
+def test_saml_user_with_no_group_claims_still_syncs_so_access_is_revoked(
+    monkeypatch: pytest.MonkeyPatch, saml_attributes: dict[str, object]
+) -> None:
+    """An IdP that drops every group must revoke the user's SAML groups.
+
+    Regression: the sync was guarded by a truthiness check, so an empty claim
+    skipped the only code path that removes stale saml-group memberships. A
+    user removed from all IdP groups kept their old access indefinitely.
+    """
+    with _loaded_setup(monkeypatch, (False, False, True, False, True)) as state:
+        state.setup.setup_hub(state.c)
+        saml_user = types.SimpleNamespace(name="saml:learner", db=object())
+        spawner = types.SimpleNamespace(user=saml_user)
+
+        anyio.run(state.c.Spawner.auth_state_hook, spawner, {"saml_attributes": saml_attributes})
+
+        expected = ["staff"] if saml_attributes.get("groups") == "staff" else []
+        assert state.group_assignments == [("saml:learner", "saml-users")]
+        assert state.saml_group_syncs == [("saml:learner", expected)]
+
+
 @pytest.mark.parametrize("auth_state", [None, {"saml_attributes": {}}])
 def test_saml_identity_is_never_treated_as_a_local_account(
     monkeypatch: pytest.MonkeyPatch, auth_state: dict[str, object] | None
