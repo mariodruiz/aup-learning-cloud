@@ -15,6 +15,7 @@ MODULE_NAMES = (
     "core",
     "core.authenticators",
     "core.authenticators.github_app",
+    "core.authenticators.saml",
     "core.groups",
 )
 MISSING = object()
@@ -44,6 +45,11 @@ def load_groups_module() -> types.ModuleType:
         github_app_module = types.ModuleType("core.authenticators.github_app")
         github_app_module.GITHUB_USERNAME_PREFIX = "github:"
         authenticators_module.github_app = github_app_module
+        # Stubbed so the lazy import in resolve_resources_for_user resolves
+        # without pulling in onelogin/xmlsec.
+        saml_module = types.ModuleType("core.authenticators.saml")
+        saml_module.SAML_USERNAME_PREFIX = "saml:"
+        authenticators_module.saml = saml_module
         core_module.authenticators = authenticators_module
         sys.modules.update(
             {
@@ -56,6 +62,7 @@ def load_groups_module() -> types.ModuleType:
                 "core": core_module,
                 "core.authenticators": authenticators_module,
                 "core.authenticators.github_app": github_app_module,
+                "core.authenticators.saml": saml_module,
             }
         )
         spec = importlib.util.spec_from_file_location("core.groups", CORE / "groups.py")

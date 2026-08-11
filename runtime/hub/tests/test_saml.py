@@ -22,6 +22,7 @@ import importlib.util
 import inspect
 import sys
 import types
+from contextlib import suppress
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -853,3 +854,140 @@ def test_acs_rejects_cross_origin_relay_state(monkeypatch):
     _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
 
     assert handler.redirected_to == "hub/home"
+
+
+def test_saml_prefix_literals_match_the_authenticator_constant():
+    """Modules that cannot import saml.py duplicate its prefix as a literal.
+
+    core.groups and core.handlers load in every deployment, including
+    native-only installs that do not ship onelogin/xmlsec, so they spell the
+    prefix out. This guards the duplication against drift.
+    """
+    prefix = saml_module.SAML_USERNAME_PREFIX
+    groups_source = (CORE / "groups.py").read_text(encoding="utf-8")
+    handlers_source = (CORE / "handlers.py").read_text(encoding="utf-8")
+
+    assert f'SAML_USERNAME_PREFIX_LITERAL = "{prefix}"' in groups_source
+    assert f'_EXTERNAL_USER_PREFIXES = ("github:", "{prefix}")' in handlers_source
+
+
+# ---------------------------------------------------------------------------
+# Tests: metadata endpoint and setup-time diagnostics
+# ---------------------------------------------------------------------------
+
+
+class RecordingMetadataHandler(RecordingACSHandler):
+    """Captures what the SP metadata endpoint writes back."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.headers = {}
+        self.written = None
+
+    def set_header(self, name, value):
+        self.headers[name] = value
+
+    def write(self, chunk):
+        self.written = chunk
+
+
+def _metadata_handler_class(authenticator):
+    handlers = dict(authenticator.get_handlers(app=None))
+    return handlers[f"{authenticator.url_scope}/metadata"]
+
+
+def _install_settings_stub(monkeypatch, metadata=b"<EntityDescriptor/>", errors=()):
+    class FakeSettings:
+        def __init__(self, settings, sp_validation_only=False):
+            self.settings = settings
+
+        def get_sp_metadata(self):
+            return metadata
+
+        def validate_metadata(self, _metadata):
+            return list(errors)
+
+    module = sys.modules["onelogin.saml2.settings"]
+    monkeypatch.setattr(module, "OneLogin_Saml2_Settings", FakeSettings, raising=False)
+
+
+def test_metadata_endpoint_serves_sp_xml(monkeypatch):
+    """Operators configure their IdP from this endpoint; it must serve XML."""
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    handler = RecordingMetadataHandler(request=DummyRequest(path="/hub/saml/metadata"))
+    _install_settings_stub(monkeypatch)
+
+    asyncio.run(_metadata_handler_class(auth).get(handler))
+
+    assert handler.headers["Content-Type"] == "application/xml"
+    assert handler.written == b"<EntityDescriptor/>"
+
+
+def test_metadata_endpoint_rejects_invalid_sp_metadata(monkeypatch):
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    handler = RecordingMetadataHandler(request=DummyRequest(path="/hub/saml/metadata"))
+    _install_settings_stub(monkeypatch, errors=["sp_entityId_not_found"])
+
+    try:
+        asyncio.run(_metadata_handler_class(auth).get(handler))
+    except saml_module.web.HTTPError as error:
+        assert _status_of(error) == 500
+    else:
+        raise AssertionError("invalid SP metadata was served")
+
+    assert handler.written is None
+
+
+def test_missing_username_attribute_is_reported_with_the_available_attributes(monkeypatch, caplog):
+    """A misconfigured username_attribute must be distinguishable from a failed login."""
+    auth = _make_auth(
+        idp_entity_id="idp",
+        idp_sso_url="https://idp/sso",
+        idp_x509_cert="cert",
+        username_attribute="uid",
+    )
+    auth.allow_all = True
+    handler = RecordingACSHandler()
+    fake = FakeSamlAuth(attributes={"emailAddress": ["alice@example.com"]})
+
+    with caplog.at_level("ERROR", logger="jupyterhub.auth.saml"), suppress(saml_module.web.HTTPError):
+        _run_acs(auth, handler, fake, monkeypatch)
+
+    assert "no usable value for username_attribute" in caplog.text
+    assert "emailAddress" in caplog.text
+    assert handler.logged_in_user is None
+
+
+def test_missing_nameid_points_the_operator_at_username_attribute(monkeypatch, caplog):
+    auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
+    auth.allow_all = True
+    handler = RecordingACSHandler()
+
+    with caplog.at_level("ERROR", logger="jupyterhub.auth.saml"), suppress(saml_module.web.HTTPError):
+        _run_acs(auth, handler, FakeSamlAuth(nameid=""), monkeypatch)
+
+    assert "contains no NameID" in caplog.text
+    assert handler.logged_in_user is None
+
+
+def test_first_idp_metadata_fetch_failure_is_explained_before_raising(monkeypatch, caplog):
+    """No cached copy means fail closed, but the cause must not be silent."""
+    saml_module._idp_metadata_cache.clear()
+
+    def explode(_url):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(saml_module.OneLogin_Saml2_IdPMetadataParser, "parse_remote", explode)
+    auth = _make_auth(idp_metadata_url="https://idp.example.com/metadata")
+
+    with caplog.at_level("ERROR", logger="jupyterhub.auth.saml"):
+        try:
+            auth._get_idp_metadata()
+        except OSError:
+            pass
+        else:
+            raise AssertionError("missing metadata must fail closed")
+
+    assert "no cached copy exists" in caplog.text
+    assert "idp_metadata_url" in caplog.text
+    saml_module._idp_metadata_cache.clear()

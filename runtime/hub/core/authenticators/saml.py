@@ -297,6 +297,16 @@ class CustomSAMLAuthenticator(Authenticator):
             return metadata
         except Exception:
             if cached is None:
+                # Fail closed: without metadata there is no signing certificate
+                # to validate assertions against. Log the cause explicitly,
+                # since this surfaces to the user as a generic 500.
+                log.error(
+                    "Could not fetch IdP metadata from %s and no cached copy exists. "
+                    "SAML login is unavailable until the IdP is reachable; verify "
+                    "idp_metadata_url and network egress from the Hub pod.",
+                    url,
+                    exc_info=True,
+                )
                 raise
             log.warning(
                 "Failed to refresh IdP metadata from %s; using cached copy",
@@ -378,9 +388,24 @@ class CustomSAMLAuthenticator(Authenticator):
                     values = attrs.get(authenticator.username_attribute, [])
                     username = values[0] if values else ""
                     username_source = f"attribute '{authenticator.username_attribute}'"
+                    if not username:
+                        # Almost always a misconfiguration rather than a failed
+                        # login: name the attributes the IdP did send so the
+                        # operator can correct username_attribute.
+                        log.error(
+                            "SAML assertion has no usable value for username_attribute %r; "
+                            "attributes present in the assertion: %s",
+                            authenticator.username_attribute,
+                            sorted(attrs) or "<none>",
+                        )
                 else:
                     username = auth.get_nameid() or ""
                     username_source = "NameID"
+                    if not username:
+                        log.error(
+                            "SAML assertion contains no NameID; set username_attribute "
+                            "if the IdP sends the username as an attribute instead"
+                        )
 
                 if username and ":" in username:
                     log.warning(
