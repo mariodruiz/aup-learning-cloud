@@ -287,6 +287,13 @@ Security-relevant defaults, override only with a reason:
 SAML usernames are `saml:<NameID>`, or `saml:<username_attribute value>` when
 `username_attribute` is set. Prefixed users cannot hold native passwords.
 
+The SP only requires the IdP to send an `AttributeStatement` when
+`username_attribute` or `group_attribute` is configured. With both empty,
+identity comes from the NameID alone and an IdP releasing no attributes is
+accepted. If `group_attribute` is set and an assertion arrives with no
+attributes, the Hub logs a warning and the user's `saml-*` groups are revoked,
+because group sync is authoritative.
+
 When `group_attribute` is set, each claim value becomes a `saml-<value>`
 JupyterHub group. The sync runs on every spawn and is authoritative: a user
 removed from a group at the IdP loses the corresponding JupyterHub group on

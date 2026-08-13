@@ -278,6 +278,11 @@ class CustomSAMLAuthenticator(Authenticator):
                 "wantNameId": True,
                 "wantNameIdEncrypted": False,
                 "wantAssertionsEncrypted": False,
+                # python3-saml requires an AttributeStatement by default, which
+                # rejects IdPs that identify users by NameID alone. Require one
+                # only when we actually read attributes, so the requirement can
+                # never contradict the rest of the configuration.
+                "wantAttributeStatement": bool(self.username_attribute or self.group_attribute),
                 "signMetadata": bool(self.sp_private_key),
             },
         }
@@ -491,6 +496,18 @@ class CustomSAMLAuthenticator(Authenticator):
 
                 saml_attributes = auth.get_attributes()
                 session_index = auth.get_session_index()
+
+                if authenticator.group_attribute and not saml_attributes:
+                    # Group sync is authoritative, so an assertion with no
+                    # attributes revokes every SAML group this user holds. Say
+                    # so rather than let an IdP-side change quietly strip access.
+                    log.warning(
+                        "SAML assertion for %r carries no attributes but group_attribute %r is "
+                        "configured; the user's saml-* groups will be revoked. Check that the IdP "
+                        "still releases the group claim.",
+                        username,
+                        authenticator.group_attribute,
+                    )
 
                 data = {
                     "username": username,

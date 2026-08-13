@@ -1201,3 +1201,61 @@ def test_request_id_cookie_lifetime_is_derived_from_the_configured_ttl(monkeypat
     _run_login(auth, handler, FakeLoginAuth(), monkeypatch)
 
     assert handler.set_cookies[SAML_REQUEST_ID_COOKIE]["expires_days"] == 300 / 86400
+
+
+def test_attribute_statement_is_required_only_when_attributes_are_consumed():
+    """NameID-only IdPs must be able to log in.
+
+    Regression: python3-saml defaults wantAttributeStatement to True, so an
+    Okta app releasing no attributes was rejected with
+    'There is no AttributeStatement on the Response' (401) even though the
+    assertion was valid and carried a usable NameID.
+    """
+    base = {
+        "idp_entity_id": "https://idp.example.com/entity",
+        "idp_sso_url": "https://idp.example.com/sso",
+        "idp_x509_cert": "cert",
+    }
+    handler = DummyHandler()
+
+    nameid_only = _make_auth(**base)._build_saml_settings(handler)
+    assert nameid_only["security"]["wantAttributeStatement"] is False
+
+    for overrides in ({"username_attribute": "email"}, {"group_attribute": "groups"}):
+        settings = _make_auth(**base, **overrides)._build_saml_settings(handler)
+        assert settings["security"]["wantAttributeStatement"] is True, overrides
+
+
+def test_relaxing_attribute_statement_keeps_every_other_assertion_check():
+    """The relaxation must not become a general loosening of validation."""
+    auth = _make_auth(
+        idp_entity_id="https://idp.example.com/entity",
+        idp_sso_url="https://idp.example.com/sso",
+        idp_x509_cert="cert",
+    )
+
+    security = auth._build_saml_settings(DummyHandler())["security"]
+
+    assert security["wantAttributeStatement"] is False
+    assert security["wantAssertionsSigned"] is True
+    assert security["wantNameId"] is True
+    assert auth._build_saml_settings(DummyHandler())["strict"] is True
+
+
+def test_missing_attributes_warn_when_group_sync_is_configured(monkeypatch, caplog):
+    """An IdP that stops releasing groups silently revokes access; say so."""
+    auth = _make_auth(
+        idp_entity_id="idp",
+        idp_sso_url="https://idp/sso",
+        idp_x509_cert="cert",
+        group_attribute="groups",
+    )
+    auth.allow_all = True
+    handler = RecordingACSHandler()
+
+    with caplog.at_level("WARNING", logger="jupyterhub.auth.saml"):
+        _run_acs(auth, handler, FakeSamlAuth(attributes={}), monkeypatch)
+
+    assert "carries no attributes" in caplog.text
+    assert "groups" in caplog.text
+    assert handler.logged_in_user is handler

@@ -572,6 +572,10 @@ hub:
     #     sp_private_key: ""              # SP private key for signed requests
     #     username_attribute: ""          # SAML attribute for username (empty = NameID)
     #     group_attribute: ""             # SAML attribute for group membership
+    #
+    # An AttributeStatement is required only when username_attribute or
+    # group_attribute is set. With both empty the SP identifies users by
+    # NameID alone, so IdPs that release no attributes still work.
     #     login_service: "AMD SSO"        # label shown on the login button
     #     want_assertions_signed: true    # require signed assertions
     #     want_response_signed: false     # require signed response envelope
