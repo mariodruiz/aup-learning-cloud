@@ -3190,8 +3190,9 @@ properties:
         description: |
           Composable authentication providers. Omitted providers are disabled.
           Exactly one of auto-login, dummy, native, GitHub, SAML, or a valid
-          combination (native plus GitHub, native plus SAML, or native plus
-          GitHub plus SAML) must be enabled whenever this object is present.
+          combination (native plus GitHub, native plus SAML, GitHub plus SAML,
+          or native plus GitHub plus SAML) must be enabled whenever this
+          object is present.
         properties:
           autoLogin:
             type: boolean
@@ -3286,6 +3287,18 @@ properties:
                 const: true
               github:
                 const: false
+              saml:
+                const: true
+          - required: [github, saml]
+            properties:
+              autoLogin:
+                const: false
+              dummy:
+                const: false
+              native:
+                const: false
+              github:
+                const: true
               saml:
                 const: true
           - required: [native, github, saml]

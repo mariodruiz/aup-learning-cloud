@@ -21,6 +21,7 @@ VALID_VARIANTS = {
     "native-github": (False, False, True, True, False),
     "saml": (False, False, False, False, True),
     "native-saml": (False, False, True, False, True),
+    "github-saml": (False, False, False, True, True),
     "native-github-saml": (False, False, True, True, True),
 }
 INVALID_VARIANTS = tuple(values for values in product((False, True), repeat=5) if values not in VALID_VARIANTS.values())
@@ -54,8 +55,8 @@ def test_setup_projects_explicit_auth_template_capabilities(
         "auth_auto_login": variant == "auto-login",
         "auth_dummy": variant == "dummy",
         "auth_native": variant in NATIVE_VARIANTS,
-        "auth_github": variant in {"github", "native-github", "native-github-saml"},
-        "auth_saml": variant in {"saml", "native-saml", "native-github-saml"},
+        "auth_github": variant in {"github", "native-github", "github-saml", "native-github-saml"},
+        "auth_saml": variant in {"saml", "native-saml", "github-saml", "native-github-saml"},
         "password_management_enabled": variant in NATIVE_VARIANTS,
         "hide_logout": variant == "auto-login",
     }
@@ -110,11 +111,11 @@ def test_login_renders_enabled_authentication_controls(
     assert ("/hub/login?next=/hub/home" in form_actions) is (variant in {"dummy", "native"})
     assert probe.hrefs.count("/hub/oauth_login?next=/hub/home") == (2 if variant == "github" else 0)
     assert ("/hub/github/oauth_login?next=/hub/home" in probe.hrefs) is (
-        variant in {"native-github", "native-github-saml"}
+        variant in {"native-github", "github-saml", "native-github-saml"}
     )
     assert ("/hub/native/login?next=/hub/home" in form_actions) is (variant in PREFIXED_NATIVE_FORM_VARIANTS)
     assert ("/hub/saml/login?next=/hub/home" in probe.hrefs) is (
-        variant in {"saml", "native-saml", "native-github-saml"}
+        variant in {"saml", "native-saml", "github-saml", "native-github-saml"}
     )
     assert "auplc-powered-by-footer" in probe.ids
     if variant in PASSWORD_FORM_VARIANTS:

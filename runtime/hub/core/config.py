@@ -281,6 +281,7 @@ class AuthCapabilities:
                 | AuthCapabilities(auto_login=False, dummy=False, native=True, github=True, saml=False)
                 | AuthCapabilities(auto_login=False, dummy=False, native=False, github=False, saml=True)
                 | AuthCapabilities(auto_login=False, dummy=False, native=True, github=False, saml=True)
+                | AuthCapabilities(auto_login=False, dummy=False, native=False, github=True, saml=True)
                 | AuthCapabilities(auto_login=False, dummy=False, native=True, github=True, saml=True)
             ):
                 return self

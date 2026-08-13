@@ -37,6 +37,7 @@ VALID_PROVIDER_SETS = {
     frozenset({"native", "github"}),
     frozenset({"saml"}),
     frozenset({"native", "saml"}),
+    frozenset({"github", "saml"}),
     frozenset({"native", "github", "saml"}),
 }
 

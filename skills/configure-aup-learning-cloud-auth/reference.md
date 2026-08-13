@@ -51,6 +51,11 @@ custom:
 ---
 custom:
   auth:
+    github: true
+    saml: true
+---
+custom:
+  auth:
     native: true
     github: true
     saml: true
@@ -77,7 +82,7 @@ Native users remain unprefixed. Configure GitHub `allowed_users`, `admin_users`,
 organizations, not the local `github:` username. Prefixed users cannot be given
 native passwords; password management applies to unprefixed accounts only.
 
-All eight combinations use `custom.teams.mapping` and the existing fallback
+All nine combinations use `custom.teams.mapping` and the existing fallback
 groups for resource visibility. Provider selection doesn't change that policy.
 SAML users fall back to the `saml-users` group mapping, then `native-users`,
 then `official`.

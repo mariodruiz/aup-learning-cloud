@@ -58,6 +58,7 @@ VALID_CANONICAL_AUTH = (
     (False, False, True, True, False),
     (False, False, False, False, True),
     (False, False, True, False, True),
+    (False, False, False, True, True),
     (False, False, True, True, True),
 )
 INVALID_CANONICAL_AUTH = (
@@ -74,7 +75,6 @@ INVALID_CANONICAL_AUTH = (
     (True, True, True, True, True),
     (True, False, False, False, True),
     (False, True, False, False, True),
-    (False, False, False, True, True),
 )
 
 

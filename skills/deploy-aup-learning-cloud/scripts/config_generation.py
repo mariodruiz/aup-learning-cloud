@@ -66,6 +66,7 @@ AUTH_MODE_PROVIDERS = {
     "multi": ("native", "github"),
     "saml": ("saml",),
     "local-saml": ("native", "saml"),
+    "github-saml": ("github", "saml"),
     "multi-all": ("native", "github", "saml"),
 }
 

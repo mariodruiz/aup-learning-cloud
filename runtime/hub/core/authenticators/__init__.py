@@ -52,7 +52,10 @@ def configure_authenticator(c: Any, auth: AuthCapabilities) -> None:
             c.GitHubOAuthenticator.allow_all = False
         case AuthCapabilities(auto_login=False, dummy=False, native=False, github=False, saml=True):
             c.JupyterHub.authenticator_class = CustomSAMLAuthenticator
-            c.Authenticator.allow_all = True
+            # Set on the concrete class, not the shared Authenticator base:
+            # hub.config is applied later and a global allow_all=false would
+            # otherwise deny every SAML login.
+            c.CustomSAMLAuthenticator.allow_all = True
         case AuthCapabilities(auto_login=False, dummy=False, native=True, github=True, saml=False):
             c.JupyterHub.authenticator_class = CustomMultiAuthenticator
             c.GitHubOAuthenticator.allow_all = False
@@ -78,6 +81,18 @@ def configure_authenticator(c: Any, auth: AuthCapabilities) -> None:
                     "authenticator_class": CustomFirstUseAuthenticator,
                     "url_prefix": "/native",
                     "config": {"prefix": "", "allow_all": True},
+                },
+            ]
+        case AuthCapabilities(auto_login=False, dummy=False, native=False, github=True, saml=True):
+            c.JupyterHub.authenticator_class = CustomMultiAuthenticator
+            c.GitHubOAuthenticator.allow_all = False
+            c.MultiAuthenticator.allow_all = True
+            c.MultiAuthenticator.authenticators = [
+                {"authenticator_class": CustomGitHubOAuthenticator, "url_prefix": "/github"},
+                {
+                    "authenticator_class": CustomSAMLAuthenticator,
+                    "url_prefix": "/saml",
+                    "config": {"allow_all": True},
                 },
             ]
         case AuthCapabilities(auto_login=False, dummy=False, native=True, github=True, saml=True):

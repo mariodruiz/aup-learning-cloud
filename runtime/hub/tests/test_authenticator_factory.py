@@ -25,6 +25,18 @@ def _install_core_packages(module_patch: pytest.MonkeyPatch) -> types.ModuleType
     return core
 
 
+class _ConfigStub:
+    """Auto-vivifies sections like traitlets Config, so the factory can set
+    allow_all on any concrete authenticator class."""
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        section = types.SimpleNamespace()
+        setattr(self, name, section)
+        return section
+
+
 @contextmanager
 def _loaded_factory(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[types.ModuleType, types.ModuleType]]:
     with monkeypatch.context() as module_patch:
@@ -77,7 +89,7 @@ def test_factory_preserves_identity_prefix_contract(monkeypatch: pytest.MonkeyPa
         ((False, True, False, False, False), "dummy", (("Authenticator", True),)),
         ((False, False, True, False, False), "CustomFirstUseAuthenticator", (("Authenticator", True),)),
         ((False, False, False, True, False), "CustomGitHubOAuthenticator", (("GitHubOAuthenticator", False),)),
-        ((False, False, False, False, True), "CustomSAMLAuthenticator", (("Authenticator", True),)),
+        ((False, False, False, False, True), "CustomSAMLAuthenticator", (("CustomSAMLAuthenticator", True),)),
         (
             (False, False, True, True, False),
             "CustomMultiAuthenticator",
@@ -102,12 +114,7 @@ def test_factory_configures_authenticator_for_canonical_capabilities(
     expected_allow_all: tuple[tuple[str, bool], ...],
 ) -> None:
     with _loaded_factory(monkeypatch) as (factory, config):
-        c = types.SimpleNamespace(
-            JupyterHub=types.SimpleNamespace(),
-            Authenticator=types.SimpleNamespace(),
-            GitHubOAuthenticator=types.SimpleNamespace(),
-            MultiAuthenticator=types.SimpleNamespace(),
-        )
+        c = _ConfigStub()
         factory.configure_authenticator(c, config.AuthCapabilities(*capabilities))
 
         selected = c.JupyterHub.authenticator_class
@@ -154,12 +161,7 @@ def test_factory_grants_allow_all_to_the_saml_child_in_every_composition(
     """Regression: MultiAuthenticator.allow_all does not propagate, so the
     SAML child inherited allow_all=False and rejected every login."""
     with _loaded_factory(monkeypatch) as (factory, config):
-        c = types.SimpleNamespace(
-            JupyterHub=types.SimpleNamespace(),
-            Authenticator=types.SimpleNamespace(),
-            GitHubOAuthenticator=types.SimpleNamespace(),
-            MultiAuthenticator=types.SimpleNamespace(),
-        )
+        c = _ConfigStub()
         factory.configure_authenticator(c, config.AuthCapabilities(*capabilities))
 
         children = c.MultiAuthenticator.authenticators
@@ -174,12 +176,7 @@ def test_factory_keeps_multi_github_allow_all_available_for_later_operator_overr
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with _loaded_factory(monkeypatch) as (factory, config):
-        c = types.SimpleNamespace(
-            JupyterHub=types.SimpleNamespace(),
-            Authenticator=types.SimpleNamespace(),
-            GitHubOAuthenticator=types.SimpleNamespace(),
-            MultiAuthenticator=types.SimpleNamespace(),
-        )
+        c = _ConfigStub()
         factory.configure_authenticator(c, config.AuthCapabilities(False, False, True, True, False))
 
         c.GitHubOAuthenticator.allow_all = True
@@ -195,12 +192,7 @@ def test_factory_multi_github_child_enforces_org_policy_until_class_override(
     support_module = importlib.import_module("github_authenticator_support")
     loaded_authenticators = support_module.loaded_authenticators
     with _loaded_factory(monkeypatch) as (factory, config), loaded_authenticators(monkeypatch) as modules:
-        c = types.SimpleNamespace(
-            JupyterHub=types.SimpleNamespace(),
-            Authenticator=types.SimpleNamespace(),
-            GitHubOAuthenticator=types.SimpleNamespace(),
-            MultiAuthenticator=types.SimpleNamespace(),
-        )
+        c = _ConfigStub()
         factory.configure_authenticator(c, config.AuthCapabilities(False, False, True, True, False))
         github_child = c.MultiAuthenticator.authenticators[0]
         authenticator = modules.github.CustomGitHubOAuthenticator()
@@ -270,3 +262,31 @@ def test_factory_module_cleanup_survives_a_forced_test_failure(monkeypatch: pyte
             assert name not in sys.modules
         else:
             assert sys.modules[name] is original_module
+
+
+def test_saml_only_sets_allow_all_on_its_own_class(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: on the shared Authenticator base, an operator's hub.config
+    Authenticator.allow_all=false denied every SAML login with 403."""
+    with _loaded_factory(monkeypatch) as (factory, config):
+        c = _ConfigStub()
+        factory.configure_authenticator(c, config.AuthCapabilities(False, False, False, False, True))
+
+        assert c.CustomSAMLAuthenticator.allow_all is True
+        assert not hasattr(c.Authenticator, "allow_all")
+
+
+def test_factory_composes_github_and_saml_without_native(monkeypatch: pytest.MonkeyPatch) -> None:
+    with _loaded_factory(monkeypatch) as (factory, config):
+        c = _ConfigStub()
+        factory.configure_authenticator(c, config.AuthCapabilities(False, False, False, True, True))
+
+        assert c.JupyterHub.authenticator_class is factory.CustomMultiAuthenticator
+        assert c.GitHubOAuthenticator.allow_all is False
+        assert c.MultiAuthenticator.authenticators == [
+            {"authenticator_class": factory.CustomGitHubOAuthenticator, "url_prefix": "/github"},
+            {
+                "authenticator_class": factory.CustomSAMLAuthenticator,
+                "url_prefix": "/saml",
+                "config": {"allow_all": True},
+            },
+        ]
