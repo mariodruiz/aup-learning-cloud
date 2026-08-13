@@ -1569,10 +1569,8 @@ class GroupsAPIHandler(APIHandler):
 
         # Lazy backfill: load_groups creates the group at startup but can't
         # set properties on existing groups. Tag it here on first admin access.
-        # Covers every system-managed group, not just native-users: an
-        # untagged group reads as source "admin" and is therefore deletable,
-        # which would let an admin remove the fallback group a provider's
-        # users depend on for resource visibility.
+        # Every system group, not just native-users: an untagged group reads
+        # as source "admin" and would be deletable.
         from core.groups import SYSTEM_GROUP_NAMES, SYSTEM_SOURCE
 
         for g in orm_groups:

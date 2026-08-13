@@ -391,24 +391,6 @@ def test_build_saml_settings_multi_auth_prefix():
     assert settings["sp"]["assertionConsumerService"]["url"] == "https://hub.example.com/hub/saml/acs"
 
 
-def test_build_saml_settings_never_advertises_single_logout():
-    """SLO is not implemented, so settings must not claim the endpoint.
-
-    There is no /slo handler and process_slo() is never called; carrying a
-    SingleLogoutService entry would describe a flow this SP cannot complete.
-    """
-    auth = _make_auth(
-        idp_entity_id="https://idp.example.com/entity",
-        idp_sso_url="https://idp.example.com/sso",
-    )
-    handler = DummyHandler()
-
-    settings = auth._build_saml_settings(handler)
-
-    assert "singleLogoutService" not in settings["idp"]
-    assert not hasattr(auth, "idp_slo_url")
-
-
 def test_slo_endpoint_from_idp_metadata_is_dropped(monkeypatch):
     """Published IdP metadata commonly includes SLO; it must not survive the merge."""
     saml_module._idp_metadata_cache.clear()
@@ -429,6 +411,7 @@ def test_slo_endpoint_from_idp_metadata_is_dropped(monkeypatch):
 
     assert settings["idp"]["entityId"] == "https://idp.example.com/entity"
     assert "singleLogoutService" not in settings["idp"]
+    assert not hasattr(auth, "idp_slo_url")
     saml_module._idp_metadata_cache.clear()
 
 
@@ -493,12 +476,8 @@ def test_build_saml_settings_security_defaults():
 
 
 def test_get_handlers_scopes_routes_under_saml_when_standalone():
-    """Standalone SAML must not shadow JupyterHub's own /hub/login page.
-
-    Regression: unscoped routes registered ahead of JupyterHub's defaults, so
-    /hub/login redirected straight to the IdP and the login template never
-    rendered (no SSO card, announcements or login errors).
-    """
+    """Regression: unscoped routes registered ahead of JupyterHub's defaults,
+    so /hub/login redirected to the IdP and the login template never rendered."""
     auth = _make_auth()
     handlers = auth.get_handlers(None)
 
@@ -793,12 +772,8 @@ def _run_acs(authenticator, handler, fake_auth, monkeypatch):
 
 
 def test_acs_authenticates_and_logs_in_user(monkeypatch):
-    """The success path must complete without raising and set a login cookie.
-
-    Regression: the handler previously called check_blocked_user (singular),
-    which does not exist on jupyterhub.auth.Authenticator, so every successful
-    assertion raised AttributeError -> HTTP 500.
-    """
+    """Regression: check_blocked_user (singular) does not exist, so every
+    successful assertion raised AttributeError -> HTTP 500."""
     auth = _make_auth(idp_entity_id="idp", idp_sso_url="https://idp/sso", idp_x509_cert="cert")
     auth.allow_all = True
     handler = RecordingACSHandler()
@@ -925,12 +900,8 @@ def test_acs_rejects_cross_origin_relay_state(monkeypatch):
 
 
 def test_saml_prefix_literals_match_the_authenticator_constant():
-    """Modules that cannot import saml.py duplicate its prefix as a literal.
-
-    core.groups and core.handlers load in every deployment, including
-    native-only installs that do not ship onelogin/xmlsec, so they spell the
-    prefix out. This guards the duplication against drift.
-    """
+    """core.groups and core.handlers cannot import saml.py, so they spell the
+    prefix out. Guards that duplication against drift."""
     prefix = saml_module.SAML_USERNAME_PREFIX
     groups_source = (CORE / "groups.py").read_text(encoding="utf-8")
     handlers_source = (CORE / "handlers.py").read_text(encoding="utf-8")
@@ -1107,11 +1078,8 @@ def _saml_auth():
 
 
 def test_login_stores_the_request_id_in_a_cross_site_capable_cookie(monkeypatch):
-    """The IdP posts to the ACS cross-site, so the cookie needs SameSite=None.
-
-    Browsers only honour SameSite=None together with Secure, which is why the
-    Secure flag is unconditional rather than tied to the deployment scheme.
-    """
+    """Browsers only honour SameSite=None together with Secure, so the Secure
+    flag is unconditional rather than tied to the deployment scheme."""
     auth = _saml_auth()
     handler = RecordingLoginHandler()
 
@@ -1180,19 +1148,6 @@ def test_acs_allows_idp_initiated_login_when_the_operator_opts_in(monkeypatch):
     assert handler.saml_request_id_seen is None
 
 
-def test_expired_correlation_cookie_is_treated_as_unsolicited(monkeypatch):
-    """A user who idles at the IdP past the TTL gets a clean rejection."""
-    auth = _saml_auth()
-    handler = RecordingACSHandler(request_id_cookie=None)
-
-    try:
-        _run_acs(auth, handler, FakeSamlAuth(), monkeypatch)
-    except saml_module.web.HTTPError as error:
-        assert _status_of(error) == 403
-    else:
-        raise AssertionError("expired correlation must not authenticate")
-
-
 def test_request_id_cookie_lifetime_is_derived_from_the_configured_ttl(monkeypatch):
     auth = _saml_auth()
     auth.request_id_cookie_max_age_seconds = 300
@@ -1204,13 +1159,8 @@ def test_request_id_cookie_lifetime_is_derived_from_the_configured_ttl(monkeypat
 
 
 def test_attribute_statement_is_required_only_when_attributes_are_consumed():
-    """NameID-only IdPs must be able to log in.
-
-    Regression: python3-saml defaults wantAttributeStatement to True, so an
-    Okta app releasing no attributes was rejected with
-    'There is no AttributeStatement on the Response' (401) even though the
-    assertion was valid and carried a usable NameID.
-    """
+    """Regression: python3-saml defaults wantAttributeStatement to True, which
+    rejected a valid NameID-only assertion with 401."""
     base = {
         "idp_entity_id": "https://idp.example.com/entity",
         "idp_sso_url": "https://idp.example.com/sso",
@@ -1224,22 +1174,6 @@ def test_attribute_statement_is_required_only_when_attributes_are_consumed():
     for overrides in ({"username_attribute": "email"}, {"group_attribute": "groups"}):
         settings = _make_auth(**base, **overrides)._build_saml_settings(handler)
         assert settings["security"]["wantAttributeStatement"] is True, overrides
-
-
-def test_relaxing_attribute_statement_keeps_every_other_assertion_check():
-    """The relaxation must not become a general loosening of validation."""
-    auth = _make_auth(
-        idp_entity_id="https://idp.example.com/entity",
-        idp_sso_url="https://idp.example.com/sso",
-        idp_x509_cert="cert",
-    )
-
-    security = auth._build_saml_settings(DummyHandler())["security"]
-
-    assert security["wantAttributeStatement"] is False
-    assert security["wantAssertionsSigned"] is True
-    assert security["wantNameId"] is True
-    assert auth._build_saml_settings(DummyHandler())["strict"] is True
 
 
 def test_missing_attributes_warn_when_group_sync_is_configured(monkeypatch, caplog):

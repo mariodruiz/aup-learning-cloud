@@ -397,12 +397,8 @@ def test_saml_user_skips_claim_sync_when_no_group_attribute_configured(monkeypat
 def test_saml_user_with_no_group_claims_still_syncs_so_access_is_revoked(
     monkeypatch: pytest.MonkeyPatch, saml_attributes: dict[str, object]
 ) -> None:
-    """An IdP that drops every group must revoke the user's SAML groups.
-
-    Regression: the sync was guarded by a truthiness check, so an empty claim
-    skipped the only code path that removes stale saml-group memberships. A
-    user removed from all IdP groups kept their old access indefinitely.
-    """
+    """Regression: a truthiness guard skipped the only path that removes stale
+    saml-group memberships, so users kept revoked access indefinitely."""
     with _loaded_setup(monkeypatch, (False, False, True, False, True)) as state:
         state.setup.setup_hub(state.c)
         saml_user = types.SimpleNamespace(name="saml:learner", db=object())
@@ -419,11 +415,8 @@ def test_saml_user_with_no_group_claims_still_syncs_so_access_is_revoked(
 def test_saml_identity_is_never_treated_as_a_local_account(
     monkeypatch: pytest.MonkeyPatch, auth_state: dict[str, object] | None
 ) -> None:
-    """A leftover saml: account must not fall through to native-users.
-
-    Regression: the native branch guarded only the GitHub prefix, so in a
-    deployment with SAML disabled a saml: user was assigned the local group.
-    """
+    """Regression: the native branch guarded only the GitHub prefix, so a
+    saml: user was assigned native-users when SAML was disabled."""
     with _loaded_setup(monkeypatch, (False, False, True, True, False)) as state:
         state.setup.setup_hub(state.c)
         stale_saml_user = types.SimpleNamespace(name="saml:formerly", db=object())

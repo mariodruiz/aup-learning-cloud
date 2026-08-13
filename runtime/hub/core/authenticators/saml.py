@@ -278,10 +278,7 @@ class CustomSAMLAuthenticator(Authenticator):
                 "wantNameId": True,
                 "wantNameIdEncrypted": False,
                 "wantAssertionsEncrypted": False,
-                # python3-saml requires an AttributeStatement by default, which
-                # rejects IdPs that identify users by NameID alone. Require one
-                # only when we actually read attributes, so the requirement can
-                # never contradict the rest of the configuration.
+                # Defaults to True in python3-saml, which rejects NameID-only IdPs.
                 "wantAttributeStatement": bool(self.username_attribute or self.group_attribute),
                 "signMetadata": bool(self.sp_private_key),
             },
@@ -293,10 +290,7 @@ class CustomSAMLAuthenticator(Authenticator):
             if metadata and "idp" in metadata:
                 settings["idp"].update(metadata["idp"])
 
-        # Single Logout is not implemented: there is no /slo handler and
-        # process_slo() is never called. Published IdP metadata often carries a
-        # SingleLogoutService endpoint, so drop it rather than keep settings
-        # that advertise a flow this SP cannot complete.
+        # SLO is not implemented; IdP metadata often advertises it anyway.
         settings["idp"].pop("singleLogoutService", None)
 
         return settings
@@ -390,9 +384,7 @@ class CustomSAMLAuthenticator(Authenticator):
                 next_url = self._validate_next_url(next_url) if next_url else ""
                 redirect_url = auth.login(return_to=next_url)
 
-                # Remember which AuthnRequest this is so the ACS can verify the
-                # Response answers it. Signed with the Hub cookie secret, so the
-                # value cannot be forged by whoever controls the browser.
+                # Signed with the Hub cookie secret so the browser cannot forge it.
                 request_id = auth.get_last_request_id()
                 if request_id:
                     self.set_secure_cookie(
@@ -446,8 +438,6 @@ class CustomSAMLAuthenticator(Authenticator):
                     )
                     raise web.HTTPError(403, "SAML authentication failed: unsolicited response")
 
-                # With request_id set, python3-saml enforces that the Response's
-                # InResponseTo matches the AuthnRequest we issued.
                 auth.process_response(request_id=request_id)
 
                 errors = auth.get_errors()
@@ -519,9 +509,8 @@ class CustomSAMLAuthenticator(Authenticator):
                 if authenticated is None:
                     raise web.HTTPError(401, "SAML authentication failed: invalid username")
 
-                # Mirror Authenticator.get_authenticated_user: normalize, validate,
-                # then enforce block/allow policy. Both checks may be sync or async
-                # depending on the subclass, so route them through maybe_future.
+                # Mirrors Authenticator.get_authenticated_user; both checks may be
+                # sync or async depending on the subclass.
                 user_name = authenticated["name"] = authenticator.normalize_username(authenticated["name"])
                 if not authenticator.validate_username(user_name):
                     log.warning("Disallowing invalid SAML username %r", user_name)

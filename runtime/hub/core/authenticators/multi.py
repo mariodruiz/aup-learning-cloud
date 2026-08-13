@@ -54,10 +54,8 @@ class CustomMultiAuthenticator(MultiAuthenticator):
     def _identity_prefix(authenticator):
         """Return the username prefix an authenticator owns.
 
-        Authenticators that prefix usernames themselves (SAML) advertise it
-        via ``identity_prefix``; the rest use the prefix MultiAuthenticator
-        derives for them. Read by name rather than by class so this module
-        never imports its sub-authenticators at call time.
+        Read by attribute name so this module never imports its
+        sub-authenticators at call time.
         """
         return getattr(authenticator, "identity_prefix", "") or authenticator.username_prefix
 
@@ -87,10 +85,7 @@ class CustomMultiAuthenticator(MultiAuthenticator):
         """Forward a lifecycle hook to the sub-authenticator owning *user*.
 
         MultiAuthenticator does not delegate these by default, so a child that
-        overrides them (GitHub strips its prefix before touching allowed_users)
-        would otherwise never see its own users. Delegation is keyed on prefix
-        ownership rather than on a specific provider, so a child that gains an
-        override later is covered without another special case here.
+        overrides them would otherwise never see its own users.
         """
         authenticator = self._find_authenticator_for_user(user)
         if authenticator is None or not self._identity_prefix(authenticator):

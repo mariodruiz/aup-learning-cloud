@@ -43,8 +43,8 @@ from core.authenticators.github_app import GITHUB_USERNAME_PREFIX
 
 log = logging.getLogger("jupyterhub.groups")
 
-# Duplicated from core.authenticators.saml.SAML_USERNAME_PREFIX to keep this
-# module importable without the SAML authenticator's native dependencies.
+# Duplicated from core.authenticators.saml: importing it would pull onelogin
+# into deployments that do not install it.
 SAML_USERNAME_PREFIX_LITERAL = "saml:"
 
 GITHUB_TEAM_SOURCE = "github-team"
@@ -755,11 +755,6 @@ def resolve_resources_for_user(
     if available_resources:
         return available_resources
 
-    # Spelled out rather than imported from core.authenticators.saml: this
-    # module loads in every deployment and that one pulls in onelogin/xmlsec,
-    # which native-only installs do not ship. Same trade-off as
-    # handlers._EXTERNAL_USER_PREFIXES. Kept in sync by
-    # test_saml_prefix_literals_match_the_authenticator_constant.
     if username.startswith(SAML_USERNAME_PREFIX_LITERAL):
         return team_resource_mapping.get(
             "saml-users",

@@ -243,12 +243,8 @@ def setup_hub(c: Any) -> None:
                 if saml_group_attribute:
                     from core.groups import sync_saml_groups_for_user
 
-                    # Sync unconditionally, including when the assertion carries
-                    # no groups: sync_saml_groups_for_user is what revokes stale
-                    # memberships, so skipping it on an empty claim would leave a
-                    # user removed from every IdP group holding their old access.
-                    # IdPs may omit the attribute, send null, or send a bare
-                    # string instead of a list; normalise before syncing.
+                    # Unconditional: this call is also what revokes stale groups.
+                    # IdPs may omit the attribute, send null, or send a bare string.
                     raw_groups = auth_state.get("saml_attributes", {}).get(saml_group_attribute)
                     if raw_groups is None:
                         saml_groups = []
@@ -264,9 +260,8 @@ def setup_hub(c: Any) -> None:
             and not spawner.user.name.startswith(GITHUB_USERNAME_PREFIX)
             and not spawner.user.name.startswith(SAML_USERNAME_PREFIX)
         ):
-            # Native user with auth_state but no GitHub teams. Externally
-            # prefixed identities are excluded even when their provider is
-            # disabled, so a leftover SAML account is never treated as local.
+            # Externally prefixed identities are excluded even when their
+            # provider is disabled, so a stale SAML account is never local.
             try:
                 from core.groups import assign_user_to_group
 

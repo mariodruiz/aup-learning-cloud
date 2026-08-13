@@ -225,12 +225,8 @@ def test_admin_provisioning_rejects_username_that_local_login_would_reject(loade
 def test_admin_provisioning_refuses_to_create_native_passwords_for_sso_identities(
     loaded_handlers, monkeypatch, username: str
 ) -> None:
-    """Federated identities must never get a shadow local credential.
-
-    Regression: this handler checked only the GitHub prefix, and
-    ``validate_username`` accepts ``saml:`` because it is a registered
-    MultiAuthenticator prefix, so nothing downstream blocked provisioning.
-    """
+    """Regression: this handler checked only the GitHub prefix, and
+    validate_username accepts saml:, so nothing downstream blocked it."""
 
     class LoginAuthenticator:
         def validate_username(self, _username):

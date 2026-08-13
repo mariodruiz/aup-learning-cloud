@@ -151,12 +151,8 @@ def test_factory_grants_allow_all_to_the_saml_child_in_every_composition(
     capabilities: tuple[bool, bool, bool, bool, bool],
     expected_children: tuple[str, ...],
 ) -> None:
-    """MultiAuthenticator.allow_all does not propagate to sub-authenticators.
-
-    Regression: the SAML child carried no config, so it inherited
-    ``allow_all=False`` and every SAML login was rejected in composed mode
-    even though the wrapper was permissive.
-    """
+    """Regression: MultiAuthenticator.allow_all does not propagate, so the
+    SAML child inherited allow_all=False and rejected every login."""
     with _loaded_factory(monkeypatch) as (factory, config):
         c = types.SimpleNamespace(
             JupyterHub=types.SimpleNamespace(),
