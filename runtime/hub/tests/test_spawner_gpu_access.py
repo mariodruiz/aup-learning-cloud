@@ -1,11 +1,12 @@
 # Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 
+import asyncio
 import copy
 import importlib.util
 import sys
 import types
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -228,3 +229,132 @@ def test_concrete_accelerator_requires_resource_authorization_and_global_configu
 
     with pytest.raises(RuntimeError, match=error):
         spawner._resolve_accelerator_selection("gpu", selection)
+
+
+# ---------------------------------------------------------------------------
+# _resolve_auto_accelerator – K8s integration and error-handling tests
+# ---------------------------------------------------------------------------
+
+
+class FakeApiException(Exception):
+    def __init__(self, status):
+        self.status = status
+        super().__init__(f"HTTP {status}")
+
+
+def _make_k8s_modules(core_v1_mock=None, api_exception_cls=FakeApiException):
+    """Build fake kubernetes_asyncio module hierarchy for inline imports."""
+    rest_module = types.ModuleType("kubernetes_asyncio.client.rest")
+    rest_module.ApiException = api_exception_cls
+
+    client_module = types.ModuleType("kubernetes_asyncio.client")
+    client_module.ApiClient = AsyncMock
+    client_module.CoreV1Api = lambda _api: core_v1_mock
+    client_module.rest = rest_module
+
+    k8s_module = types.ModuleType("kubernetes_asyncio")
+    k8s_module.client = client_module
+
+    return {
+        "kubernetes_asyncio": k8s_module,
+        "kubernetes_asyncio.client": client_module,
+        "kubernetes_asyncio.client.rest": rest_module,
+    }
+
+
+def _make_auto_spawner():
+    spawner = object.__new__(RemoteLabKubeSpawner)
+    spawner.node_selector_mapping = {
+        "gpu-a": {"kubernetes.io/hostname": "node-a"},
+        "gpu-b": {"kubernetes.io/hostname": "node-b"},
+    }
+    spawner.quota_rates = {"gpu-a": 10, "gpu-b": 10}
+    spawner.log = types.SimpleNamespace(
+        debug=lambda _msg: None,
+        info=lambda _msg: None,
+        warning=lambda _msg: None,
+    )
+    return spawner
+
+
+def _fake_node(name, labels, gpu_allocatable=1):
+    return types.SimpleNamespace(
+        metadata=types.SimpleNamespace(name=name, labels=labels),
+        status=types.SimpleNamespace(allocatable={"amd.com/gpu": str(gpu_allocatable)}),
+    )
+
+
+def _fake_pod(node_name, gpu_requests=1):
+    container = types.SimpleNamespace(
+        resources=types.SimpleNamespace(requests={"amd.com/gpu": str(gpu_requests)})
+    )
+    return types.SimpleNamespace(
+        spec=types.SimpleNamespace(node_name=node_name, containers=[container])
+    )
+
+
+def test_auto_accelerator_raises_on_forbidden():
+    v1 = types.SimpleNamespace(
+        list_node=AsyncMock(side_effect=FakeApiException(403)),
+        list_pod_for_all_namespaces=AsyncMock(),
+    )
+    mods = _make_k8s_modules(core_v1_mock=v1)
+    spawner = _make_auto_spawner()
+
+    with patch.dict(sys.modules, mods):
+        with pytest.raises(RuntimeError, match="403"):
+            asyncio.get_event_loop().run_until_complete(
+                spawner._resolve_auto_accelerator("gpu", ["gpu-a", "gpu-b"])
+            )
+
+
+def test_auto_accelerator_falls_back_on_transient_api_error():
+    v1 = types.SimpleNamespace(
+        list_node=AsyncMock(side_effect=FakeApiException(503)),
+        list_pod_for_all_namespaces=AsyncMock(),
+    )
+    mods = _make_k8s_modules(core_v1_mock=v1)
+    spawner = _make_auto_spawner()
+
+    with patch.dict(sys.modules, mods):
+        result = asyncio.get_event_loop().run_until_complete(
+            spawner._resolve_auto_accelerator("gpu", ["gpu-a", "gpu-b"])
+        )
+    assert result in ("gpu-a", "gpu-b")
+
+
+def test_auto_accelerator_falls_back_on_generic_exception():
+    v1 = types.SimpleNamespace(
+        list_node=AsyncMock(side_effect=ConnectionError("timeout")),
+        list_pod_for_all_namespaces=AsyncMock(),
+    )
+    mods = _make_k8s_modules(core_v1_mock=v1)
+    spawner = _make_auto_spawner()
+
+    with patch.dict(sys.modules, mods):
+        result = asyncio.get_event_loop().run_until_complete(
+            spawner._resolve_auto_accelerator("gpu", ["gpu-a", "gpu-b"])
+        )
+    assert result in ("gpu-a", "gpu-b")
+
+
+def test_auto_accelerator_prefers_node_with_free_gpus():
+    nodes = types.SimpleNamespace(items=[
+        _fake_node("node-a", {"kubernetes.io/hostname": "node-a"}, gpu_allocatable=1),
+        _fake_node("node-b", {"kubernetes.io/hostname": "node-b"}, gpu_allocatable=1),
+    ])
+    pods = types.SimpleNamespace(items=[
+        _fake_pod("node-a", gpu_requests=1),
+    ])
+    v1 = types.SimpleNamespace(
+        list_node=AsyncMock(return_value=nodes),
+        list_pod_for_all_namespaces=AsyncMock(return_value=pods),
+    )
+    mods = _make_k8s_modules(core_v1_mock=v1)
+    spawner = _make_auto_spawner()
+
+    with patch.dict(sys.modules, mods):
+        result = asyncio.get_event_loop().run_until_complete(
+            spawner._resolve_auto_accelerator("gpu", ["gpu-a", "gpu-b"])
+        )
+    assert result == "gpu-b"
