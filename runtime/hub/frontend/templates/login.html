@@ -193,6 +193,18 @@ SOFTWARE.
                 {% endif %}
 
             </div>
+            {% set access_url = request_access_url|default("", true)|trim %}
+            {% if access_url %}
+            <div class="text-center mt-6">
+                <a role="button"
+                   class="login-request-access inline-block w-full py-3 px-4 rounded-lg font-medium text-sm transition duration-300"
+                   href="{{ access_url }}"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    Request access
+                </a>
+            </div>
+            {% endif %}
             {% endblock login_container %}
         </div>
     </div>

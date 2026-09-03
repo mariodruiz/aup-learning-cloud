@@ -377,6 +377,7 @@ class HubConfig:
         self.runtime_limit_enabled: bool = True
         self.github_org_name: str = ""
         self.cluster_name: str = ""
+        self.request_access_url: str = ""
         self.admin_username: str = "admin"
         self.quota_enabled: bool = False
 
@@ -423,6 +424,7 @@ class HubConfig:
             )
         instance.github_org_name = raw_config.get("githubOrgName", "")
         instance.cluster_name = raw_config.get("clusterName", "")
+        instance.request_access_url = raw_config.get("requestAccessUrl", "")
         admin_user = raw_config.get("adminUser", {})
         if isinstance(admin_user, dict):
             instance.admin_username = admin_user.get("username", "admin")

@@ -114,6 +114,18 @@
     color: #6b7280;
   }
 
+  .login-request-access {
+    background: transparent;
+    border: 1px solid #d1d5db;
+    color: #374151;
+  }
+
+  .login-request-access:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    color: #111827;
+  }
+
   [data-bs-theme="dark"] .login-main-panel {
     background: #030712 !important;
   }
@@ -172,6 +184,18 @@
 
   [data-bs-theme="dark"] .login-divider span {
     background: #111827 !important;
+  }
+
+  [data-bs-theme="dark"] .login-request-access {
+    background: transparent !important;
+    border-color: #4b5563 !important;
+    color: #d1d5db !important;
+  }
+
+  [data-bs-theme="dark"] .login-request-access:hover {
+    background: #1f2937 !important;
+    border-color: #6b7280 !important;
+    color: #f9fafb !important;
   }
 
   [data-bs-theme="dark"] .login-submit:focus,
