@@ -813,6 +813,7 @@ class RemoteLabKubeSpawner(KubeSpawner):
         try:
             from kubernetes_asyncio import client as k8s_client
             from kubernetes_asyncio.client import ApiClient
+            from kubernetes_asyncio.client.rest import ApiException
 
             async with ApiClient() as api_client:
                 v1 = k8s_client.CoreV1Api(api_client)
@@ -859,6 +860,19 @@ class RemoteLabKubeSpawner(KubeSpawner):
             )
             return chosen[0]
 
+        except ApiException as e:
+            if e.status == 403:
+                raise RuntimeError(
+                    "Auto GPU selection requires cluster-scoped RBAC for node/pod "
+                    "listing. Ensure the Hub ClusterRole is deployed (HTTP 403)."
+                ) from e
+            self.log.warning(
+                f"Auto-accelerator K8s query failed (HTTP {e.status}), "
+                f"falling back to cheapest: {e}"
+            )
+            rated = [(k, self.quota_rates.get(k, 99)) for k in eligible_keys]
+            rated.sort(key=lambda x: x[1])
+            return rated[0][0]
         except Exception as e:
             self.log.warning(f"Auto-accelerator K8s query failed, falling back to cheapest: {e}")
             rated = [(k, self.quota_rates.get(k, 99)) for k in eligible_keys]
